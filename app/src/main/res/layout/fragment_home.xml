@@ -138,12 +138,7 @@
                         android:layout_gravity="center"
                         android:src="@drawable/baseline_play_arrow_24" />
 
-                    <ImageView
-                        android:layout_width="34dp"
-                        android:layout_height="34dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/baseline_pause_24"
-                        android:visibility="gone" />
+
                 </androidx.cardview.widget.CardView>
             </androidx.cardview.widget.CardView>
         </androidx.cardview.widget.CardView>
@@ -160,7 +155,7 @@
            android:layout_marginLeft="25dp"
            />
         <TextView
-            android:id="@+id/txtTimeFrame"
+            android:id="@+id/enableText"
             android:layout_width="match_parent"
             android:layout_height="40dp"
             android:layout_toStartOf="@id/autoplay_btn"

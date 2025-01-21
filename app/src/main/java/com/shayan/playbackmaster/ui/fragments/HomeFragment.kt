@@ -149,8 +149,8 @@ class HomeFragment : Fragment() {
 
     private fun setupPlaybackNavigation() {
         binding.autoplayBtn.visibility = View.GONE
+        binding.enableText.visibility=View.GONE
         binding.playBtn.apply {
-            visibility = View.GONE
             setOnClickListener {
                 requireActivity().findNavController(R.id.nav_host_fragment)
                     .navigate(R.id.action_homeFragment_to_videoFragment)
@@ -169,7 +169,9 @@ class HomeFragment : Fragment() {
             return
         }
         binding.playBtn.visibility = View.VISIBLE
+        binding.enableText.visibility=View.VISIBLE
         binding.autoplayBtn.visibility = View.VISIBLE
+
     }
 
     private fun isVideoFormatSupported(uri: Uri): Boolean {
