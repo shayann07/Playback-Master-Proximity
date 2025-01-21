@@ -14,9 +14,6 @@
         <action
             android:id="@+id/action_homeFragment_to_videoFragment"
             app:destination="@id/videoFragment" />
-        <action
-            android:id="@+id/action_homeFragment_to_settingsFragment"
-            app:destination="@id/settingsFragment" />
     </fragment>
 
     <!-- Video Playback Fragment -->
@@ -29,16 +26,4 @@
             android:id="@+id/action_videoFragment_to_homeFragment"
             app:destination="@id/homeFragment" />
     </fragment>
-
-    <!-- Settings Fragment -->
-    <fragment
-        android:id="@+id/settingsFragment"
-        android:name="com.shayan.playbackmaster.ui.fragments.SettingsFragment"
-        android:label="Settings"
-        tools:layout="@layout/fragment_settings">
-        <action
-            android:id="@+id/action_settingsFragment_to_homeFragment"
-            app:destination="@id/homeFragment" />
-    </fragment>
-
 </navigation>

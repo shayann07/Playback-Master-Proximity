@@ -1,6 +1,7 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/black">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -46,6 +47,16 @@
             android:text="Play Video"
             android:visibility="visible" />
 
+        <!-- Auto-Play Switch -->
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/switchAutoPlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentTop="true"
+            android:layout_marginTop="16dp"
+            android:text="Enable Auto-Play"
+            android:visibility="visible" />
+
         <!-- Screen Lock Management -->
         <TextView
             android:id="@+id/txtScreenLockInfo"
@@ -57,7 +68,7 @@
             android:textSize="18sp"
             android:textStyle="bold" />
 
-        <androidx.appcompat.widget.SwitchCompat
+        <com.google.android.material.materialswitch.MaterialSwitch
             android:id="@+id/switchScreenLock"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

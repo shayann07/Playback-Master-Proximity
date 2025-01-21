@@ -148,6 +148,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun setupPlaybackNavigation() {
+        binding.switchAutoPlay.visibility = View.GONE
         binding.btnNavigateToPlayback.apply {
             visibility = View.GONE
             setOnClickListener {
@@ -168,6 +169,7 @@ class HomeFragment : Fragment() {
             return
         }
         binding.btnNavigateToPlayback.visibility = View.VISIBLE
+        binding.switchAutoPlay.visibility = View.VISIBLE
     }
 
     private fun isVideoFormatSupported(uri: Uri): Boolean {
