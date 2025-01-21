@@ -48,55 +48,37 @@ class HomeFragment : Fragment() {
 
     @RequiresApi(Build.VERSION_CODES.M)
     private fun initializeScreenLockSwitch() {
-        val isDisabled = isLockScreenCompletelyDisabled(requireContext())
-        binding.switchScreenLock.isChecked = isDisabled
-        Log.d("HomeFragment", "Switch initialized to: $isDisabled")
+        updateSwitchState()
 
         binding.switchScreenLock.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                if (isDisabled) {
+                if (isLockScreenDisabled(requireContext())) {
                     showToast("Screen lock is already disabled.")
                 } else {
                     showDisableLockDialog()
-                    binding.switchScreenLock.isChecked = false
+                    updateSwitchState() // Revert the switch state after showing the dialog
                 }
             } else {
                 showToast("Screen lock settings remain unchanged.")
+                updateSwitchState() // Ensure the state remains consistent
             }
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
-    private fun isLockScreenCompletelyDisabled(context: Context): Boolean {
+    private fun updateSwitchState() {
+        val isDisabled = isLockScreenDisabled(requireContext())
+        binding.switchScreenLock.isChecked = isDisabled
+        Log.d("HomeFragment", "Switch updated to: $isDisabled")
+    }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun isLockScreenDisabled(context: Context): Boolean {
         val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
         val isDeviceSecure = keyguardManager.isDeviceSecure
-        val isSwipeToUnlockEnabled = getSwipeToUnlockStatus(context)
 
-        Log.d(
-            "HomeFragment",
-            "isDeviceSecure: $isDeviceSecure, isSwipeToUnlockEnabled: $isSwipeToUnlockEnabled"
-        )
-        return !isDeviceSecure && !isSwipeToUnlockEnabled
-    }
-
-    private fun getSwipeToUnlockStatus(context: Context): Boolean {
-        return try {
-            val lockDisabled = Settings.Secure.getInt(
-                context.contentResolver, "lock_screen_disabled"
-            )
-            Log.d("HomeFragment", "lock_screen_disabled value: $lockDisabled")
-            lockDisabled != 1
-        } catch (e: Settings.SettingNotFoundException) {
-            Log.e("HomeFragment", "lock_screen_disabled setting not found.")
-            isImplicitSwipeEnabled(context)
-        }
-    }
-
-    private fun isImplicitSwipeEnabled(context: Context): Boolean {
-        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
-        val isKeyguardLocked = keyguardManager.isKeyguardLocked
-        Log.d("HomeFragment", "isKeyguardLocked: $isKeyguardLocked")
-        return isKeyguardLocked
+        Log.d("HomeFragment", "isDeviceSecure: $isDeviceSecure")
+        return !isDeviceSecure
     }
 
     private fun showDisableLockDialog() {
@@ -119,7 +101,7 @@ class HomeFragment : Fragment() {
                 startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
             }.setNegativeButton("Cancel") { dialog, _ ->
                 dialog.dismiss()
-                binding.switchScreenLock.isChecked = false
+                updateSwitchState()
             }.create().show()
     }
 
