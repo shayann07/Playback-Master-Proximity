@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- Time Selector Button -->
+    <Button
+        android:id="@+id/btnSelectTime"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:text="Select Time" />
+
+    <!-- Time Frame Display -->
+    <TextView
+        android:id="@+id/txtTimeFrame"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/btnSelectTime"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text="No time selected" />
+
+    <!-- Video Uploader Button -->
+    <Button
+        android:id="@+id/btnUploadVideo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtTimeFrame"
+        android:layout_marginTop="16dp"
+        android:text="Upload Video" />
+
+    <!-- Video URI Display -->
+    <TextView
+        android:id="@+id/txtVideoUri"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/btnUploadVideo"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text="No video selected" />
+
+    <!-- Navigate to Playback Button -->
+    <Button
+        android:id="@+id/btnNavigateToPlayback"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/txtVideoUri"
+        android:layout_marginTop="16dp"
+        android:text="Go to Playback" />
+</RelativeLayout>
