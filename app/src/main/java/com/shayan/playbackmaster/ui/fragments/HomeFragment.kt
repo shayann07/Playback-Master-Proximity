@@ -1,13 +1,18 @@
 package com.shayan.playbackmaster.ui.fragments
 
 import android.app.Activity
+import android.app.KeyguardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
@@ -30,6 +35,7 @@ class HomeFragment : Fragment() {
         return binding.root
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -60,6 +66,74 @@ class HomeFragment : Fragment() {
             val navController = requireActivity().findNavController(R.id.nav_host_fragment)
             navController.navigate(R.id.action_homeFragment_to_videoFragment)
         }
+
+        // Initial switch state based on lock status
+        binding.switchScreenLock.isChecked = isLockScreenCompletelyDisabled(requireContext())
+
+        // Screen Lock Switch with condition
+        binding.switchScreenLock.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                if (isLockScreenCompletelyDisabled(requireContext())) {
+                    Toast.makeText(
+                        requireContext(), "Screen lock is already disabled.", Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    Toast.makeText(
+                        requireContext(),
+                        "Please disable all screen locks, including swipe-to-unlock, in your device settings.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    binding.switchScreenLock.isChecked = false // Prevent toggle to ON
+                }
+            } else {
+                Toast.makeText(
+                    requireContext(), "Screen lock settings remain unchanged.", Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun isLockScreenCompletelyDisabled(context: Context): Boolean {
+        val keyguardManager = context.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
+
+        // Check if any secure lock (PIN, password, pattern) is enabled
+        val isDeviceSecure = keyguardManager.isDeviceSecure
+
+        // Check if swipe-to-unlock is enabled
+        val isSwipeToUnlockEnabled = try {
+            val lockDisabled = Settings.Secure.getInt(
+                context.contentResolver, "lock_screen_disabled"
+            )
+            lockDisabled != 1 // If not disabled, swipe-to-unlock is active
+        } catch (e: Settings.SettingNotFoundException) {
+            true // Default to true if the setting is not found
+        }
+
+        // Return true only if both secure lock and swipe-to-unlock are disabled
+        return !isDeviceSecure && !isSwipeToUnlockEnabled
+    }
+
+    private fun showDisableLockDialog() {
+        val dialogMessage = """
+        To ensure seamless operation, please disable all screen locks, including swipe-to-unlock:
+        1. Go to your device settings.
+        2. Navigate to "Security" or "Screen Lock."
+        3. Set the lock screen to "None."
+        
+        Note: On some devices, you may need to disable swipe-to-unlock in Developer Options.
+    """.trimIndent()
+
+        val dialog =
+            android.app.AlertDialog.Builder(requireContext()).setTitle("Disable All Screen Locks")
+                .setMessage(dialogMessage).setPositiveButton("Go to Settings") { _, _ ->
+                    startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+                }.setNegativeButton("Cancel") { dialog, _ ->
+                    dialog.dismiss()
+                    binding.switchScreenLock.isChecked = false // Revert the switch
+                }.create()
+
+        dialog.show()
     }
 
     private fun checkPrerequisites() {

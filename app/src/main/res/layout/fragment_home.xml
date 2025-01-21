@@ -1,52 +1,68 @@
-<?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:padding="16dp">
+    android:layout_height="match_parent">
 
-    <!-- Time Selector Button -->
-    <Button
-        android:id="@+id/btnSelectTime"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_alignParentTop="true"
-        android:text="Select Time" />
+        android:orientation="vertical"
+        android:padding="16dp">
 
-    <!-- Time Frame Display -->
-    <TextView
-        android:id="@+id/txtTimeFrame"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/btnSelectTime"
-        android:layout_marginTop="8dp"
-        android:gravity="center"
-        android:text="No time selected" />
+        <!-- Existing Time Selector and Video Uploader -->
+        <Button
+            android:id="@+id/btnSelectTime"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select Time Slot" />
 
-    <!-- Video Uploader Button -->
-    <Button
-        android:id="@+id/btnUploadVideo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/txtTimeFrame"
-        android:layout_marginTop="16dp"
-        android:text="Upload Video" />
+        <TextView
+            android:id="@+id/txtTimeFrame"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="No Time Slot Selected" />
 
-    <!-- Video URI Display -->
-    <TextView
-        android:id="@+id/txtVideoUri"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/btnUploadVideo"
-        android:layout_marginTop="8dp"
-        android:gravity="center"
-        android:text="No video selected" />
+        <Button
+            android:id="@+id/btnUploadVideo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Upload Video" />
 
-    <!-- Navigate to Playback Button -->
-    <Button
-        android:id="@+id/btnNavigateToPlayback"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/txtVideoUri"
-        android:layout_marginTop="16dp"
-        android:text="Go to Playback" />
-</RelativeLayout>
+        <TextView
+            android:id="@+id/txtVideoUri"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="No Video Selected" />
+
+        <Button
+            android:id="@+id/btnNavigateToPlayback"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Play Video"
+            android:visibility="visible" />
+
+        <!-- Screen Lock Management -->
+        <TextView
+            android:id="@+id/txtScreenLockInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:gravity="center"
+            android:text="Screen Lock Settings"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchScreenLock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Disable Screen Lock Permanently" />
+
+    </LinearLayout>
+</ScrollView>
