@@ -12,11 +12,13 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.databinding.FragmentHomeBinding
 import com.shayan.playbackmaster.ui.viewmodel.AppViewModel
@@ -47,25 +49,6 @@ class HomeFragment : Fragment() {
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
-    private fun initializeScreenLockSwitch() {
-        updateSwitchState()
-
-        binding.switchScreenLock.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                if (isLockScreenDisabled(requireContext())) {
-                    showToast("Screen lock is already disabled.")
-                } else {
-                    showDisableLockDialog()
-                    updateSwitchState() // Revert the switch state after showing the dialog
-                }
-            } else {
-                showToast("Screen lock settings remain unchanged.")
-                updateSwitchState() // Ensure the state remains consistent
-            }
-        }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.M)
     private fun updateSwitchState() {
         val isDisabled = isLockScreenDisabled(requireContext())
         binding.switchScreenLock.isChecked = isDisabled
@@ -81,29 +64,58 @@ class HomeFragment : Fragment() {
         return !isDeviceSecure
     }
 
-    private fun showDisableLockDialog() {
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun showDisableLockBottomSheet() {
         if (!isAdded) {
-            Log.e("HomeFragment", "Fragment not attached to activity. Cannot show dialog.")
+            Log.e("HomeFragment", "Fragment not attached to activity. Cannot show bottom sheet.")
             return
         }
 
-        val dialogMessage = """
-            To ensure seamless operation, please disable all screen locks, including swipe-to-unlock:
-            1. Go to your device settings.
-            2. Navigate to "Security" or "Screen Lock."
-            3. Set the lock screen to "None."
+        // Create a BottomSheetDialog
+        val bottomSheetDialog = BottomSheetDialog(requireContext())
+        val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_instructions, null)
 
-            Note: On some devices, you may need to disable swipe-to-unlock in Developer Options.
-        """.trimIndent()
+        // Set the view for the BottomSheetDialog
+        bottomSheetDialog.setContentView(bottomSheetView)
 
-        android.app.AlertDialog.Builder(requireContext()).setTitle("Disable All Screen Locks")
-            .setMessage(dialogMessage).setPositiveButton("Go to Settings") { _, _ ->
-                startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
-            }.setNegativeButton("Cancel") { dialog, _ ->
-                dialog.dismiss()
-                updateSwitchState()
-            }.create().show()
+        // Access views in the bottom sheet
+        val btnGoToSettings = bottomSheetView.findViewById<Button>(R.id.btn_go_to_settings)
+        val btnCancel = bottomSheetView.findViewById<Button>(R.id.btn_close)
+
+        // Set button click listeners
+        btnGoToSettings.setOnClickListener {
+            startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
+            bottomSheetDialog.dismiss()
+        }
+
+        btnCancel.setOnClickListener {
+            bottomSheetDialog.dismiss()
+            updateSwitchState() // Revert the switch state if the user cancels
+        }
+
+        // Show the BottomSheetDialog
+        bottomSheetDialog.show()
     }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun initializeScreenLockSwitch() {
+        updateSwitchState()
+
+        binding.switchScreenLock.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                if (isLockScreenDisabled(requireContext())) {
+                    showToast("Screen lock is already disabled.")
+                } else {
+                    showDisableLockBottomSheet()
+                    updateSwitchState() // Revert the switch state after showing the bottom sheet
+                }
+            } else {
+                showToast("Screen lock settings remain unchanged.")
+                updateSwitchState() // Ensure the state remains consistent
+            }
+        }
+    }
+
 
     @RequiresApi(Build.VERSION_CODES.M)
     private fun setupTimeSelection() {
