@@ -41,27 +41,28 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        observeViewModel()
-        setupTimeSelection()
-        setupVideoUpload()
-        setupPlaybackNavigation()
-        initializeScreenLockSwitch()
+        viewModel.loadVideoDetails() // Load saved video details from preferences
+        observeViewModel() // Observe LiveData from ViewModel
+        setupTimeSelection() // Configure time pickers
+        setupVideoUpload() // Configure video upload functionality
+        setupPlaybackNavigation() // Configure navigation to playback screen
+        initializeScreenLockSwitch() // Configure screen lock toggle
     }
 
     private fun observeViewModel() {
         viewModel.videoUri.observe(viewLifecycleOwner) { uri ->
             binding.videoUriTxt.text = uri ?: "No video selected"
-            updatePrerequisites()
+            updateVisibilityBasedOnVideoUpload()
         }
 
-        viewModel.startTime.observe(viewLifecycleOwner) { startTime ->
-            binding.startTimeBtn.text = startTime ?: "Select Start Time"
-            updatePrerequisites()
+        viewModel.startTime.observe(viewLifecycleOwner) {
+            binding.startTimeBtn.text = it ?: "Select Start Time"
+            updateVisibilityBasedOnVideoUpload()
         }
 
-        viewModel.endTime.observe(viewLifecycleOwner) { endTime ->
-            binding.endTimeBtn.text = endTime ?: "Select End Time"
-            updatePrerequisites()
+        viewModel.endTime.observe(viewLifecycleOwner) {
+            binding.endTimeBtn.text = it ?: "Select End Time"
+            updateVisibilityBasedOnVideoUpload()
         }
     }
 
@@ -132,8 +133,6 @@ class HomeFragment : Fragment() {
 
     @RequiresApi(Build.VERSION_CODES.M)
     private fun showDisableLockBottomSheet() {
-        if (!isAdded) return
-
         val bottomSheetDialog = BottomSheetDialog(requireContext())
         val bottomSheetView = layoutInflater.inflate(R.layout.bottom_sheet_instructions, null)
         bottomSheetDialog.setContentView(bottomSheetView)
@@ -154,16 +153,12 @@ class HomeFragment : Fragment() {
         bottomSheetDialog.show()
     }
 
-    private fun updatePrerequisites() {
+    private fun updateVisibilityBasedOnVideoUpload() {
         val isVideoUploaded = !viewModel.videoUri.value.isNullOrEmpty()
-        val isTimeSet =
-            !viewModel.startTime.value.isNullOrEmpty() && !viewModel.endTime.value.isNullOrEmpty()
 
-        binding.playBtn.visibility = if (isVideoUploaded && isTimeSet) View.VISIBLE else View.GONE
-        binding.autoplayBtn.visibility =
-            if (isVideoUploaded && isTimeSet) View.VISIBLE else View.GONE
-        binding.enableText.visibility =
-            if (isVideoUploaded && isTimeSet) View.VISIBLE else View.GONE
+        binding.circularShapeLower.visibility = if (isVideoUploaded) View.VISIBLE else View.GONE
+        binding.autoplayBtn.visibility = if (isVideoUploaded) View.VISIBLE else View.GONE
+        binding.videoUriTxt.visibility = if (isVideoUploaded) View.VISIBLE else View.GONE
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
