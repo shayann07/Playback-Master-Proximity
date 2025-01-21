@@ -1,79 +1,211 @@
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:background="@color/black">
 
-    <LinearLayout
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="16dp">
 
         <!-- Existing Time Selector and Video Uploader -->
-        <Button
-            android:id="@+id/btnSelectTime"
+       <TextView
+           android:layout_width="wrap_content"
+           android:layout_height="wrap_content"
+           android:id="@+id/timeTextID"
+           android:text="Select Time Frame"
+           android:layout_marginTop="30dp"
+           android:textColor="@color/white"
+           android:layout_centerHorizontal="true"
+           android:textSize="24dp"
+           android:textStyle="bold"/>
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Select Time Slot" />
+            android:orientation="horizontal"
+            android:layout_below="@+id/timeTextID"
+            android:id="@+id/linear_layout1"
+            android:layout_marginTop="10dp"
+            >
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Start Time"
+                android:textSize="20sp"
+                android:textAlignment="center"
+                android:textColor="@color/white"
+                android:layout_margin="20dp"
+                android:layout_weight="1"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="End Time"
+                android:textSize="20sp"
+                android:textAlignment="center"
+                android:textColor="@color/white"
+                android:layout_margin="20dp"
+                android:layout_weight="1"/>
 
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_below="@+id/linear_layout1"
+            android:id="@+id/linear_layout2"
+
+            >
+            <TextView
+                android:layout_width="30dp"
+                android:layout_height="40dp"
+                android:text="09:20"
+                android:id="@+id/startTimeBtn"
+                android:textSize="15sp"
+                android:textColor="@color/white"
+                android:layout_marginHorizontal="20dp"
+                android:gravity="center"
+                android:background="@drawable/text_bg"
+                android:layout_weight="1"/>
+            <TextView
+                android:layout_width="30dp"
+                android:layout_height="40dp"
+                android:text="10:20"
+                android:textSize="15sp"
+                android:id="@+id/endTimeBtn"
+                android:background="@drawable/text_bg"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:layout_marginHorizontal="20dp"
+                android:layout_weight="1"/>
+
+        </LinearLayout>
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:id="@+id/upload_btn"
+            android:layout_below="@id/linear_layout2"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="20dp"
+            app:backgroundTint="@null"
+            android:background="@drawable/text_bg"
+            android:drawableEnd="@drawable/baseline_upload_24"
+            android:text="Upload Video"/>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:id="@+id/videoUriTxt"
+            android:layout_marginHorizontal="20dp"
+            android:layout_below="@+id/upload_btn"
+            android:text="Video Uri"
+            android:gravity="center"
+            android:layout_margin="20dp"
+            android:textColor="#112BBF"/>
+        <androidx.cardview.widget.CardView
+            android:id="@+id/circular_shape_lower"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:layout_below="@+id/videoUriTxt"
+            android:layout_centerHorizontal="true"
+            android:layout_marginHorizontal="30dp"
+            android:layout_marginTop="10dp"
+            android:backgroundTint="@color/grey"
+            app:cardCornerRadius="75dp">
+
+            <androidx.cardview.widget.CardView
+                android:id="@+id/circular_shape_mid"
+                android:layout_width="130dp"
+                android:layout_height="130dp"
+                android:layout_gravity="center"
+                app:cardBackgroundColor="#B38B8E"
+                app:cardCornerRadius="65dp">
+
+                <androidx.cardview.widget.CardView
+                    android:id="@+id/playBtn"
+                    android:layout_width="100dp"
+                    android:layout_height="100dp"
+                    android:layout_gravity="center"
+                    app:cardBackgroundColor="@color/black"
+                    app:cardCornerRadius="50dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:background="@drawable/playbtn"/>
+                    <ImageView
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/baseline_play_arrow_24" />
+
+                    <ImageView
+                        android:layout_width="34dp"
+                        android:layout_height="34dp"
+                        android:layout_gravity="center"
+                        android:src="@drawable/baseline_pause_24"
+                        android:visibility="gone" />
+                </androidx.cardview.widget.CardView>
+            </androidx.cardview.widget.CardView>
+        </androidx.cardview.widget.CardView>
+       <com.google.android.material.materialswitch.MaterialSwitch
+           android:layout_width="wrap_content"
+           android:layout_height="40dp"
+           android:layout_below="@id/circular_shape_lower"
+           android:layout_marginTop="20dp"
+           android:id="@+id/autoplay_btn"
+           android:layout_centerHorizontal="true"
+           android:textSize="15sp"
+           android:paddingStart="8dp"
+           android:textColor="@color/white"
+           android:layout_marginLeft="25dp"
+           />
         <TextView
             android:id="@+id/txtTimeFrame"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_height="40dp"
+            android:layout_toStartOf="@id/autoplay_btn"
+            android:layout_below="@id/circular_shape_lower"
+            android:layout_marginTop="20dp"
             android:gravity="center"
-            android:text="No Time Slot Selected" />
-
-        <Button
-            android:id="@+id/btnUploadVideo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Upload Video" />
-
+            android:textColor="@color/white"
+            android:text="Enable Auto-Play"
+            android:textSize="16sp"/>
         <TextView
-            android:id="@+id/txtVideoUri"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center"
-            android:text="No Video Selected" />
-
-        <Button
-            android:id="@+id/btnNavigateToPlayback"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Play Video"
-            android:visibility="visible" />
-
-        <!-- Auto-Play Switch -->
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/switchAutoPlay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_alignParentTop="true"
-            android:layout_marginTop="16dp"
-            android:text="Enable Auto-Play"
-            android:visibility="visible" />
-
-        <!-- Screen Lock Management -->
-        <TextView
-            android:id="@+id/txtScreenLockInfo"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
-            android:gravity="center"
-            android:text="Screen Lock Settings"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:id="@+id/screenLockText"
+            android:text="Screen Lock Setting"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="10dp"
+            android:layout_below="@id/autoplay_btn"
+            android:textSize="24sp"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            />
 
         <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/switchScreenLock"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_below="@id/screenLockText"
+            android:layout_marginTop="20dp"
+            android:id="@+id/disableScreenLock"
+            android:layout_centerHorizontal="true"
+            android:textSize="15sp"
+            android:paddingStart="8dp"
+            android:textColor="@color/white"
+            android:layout_marginLeft="25dp"
+            />
+        <TextView
+            android:id="@+id/disableText"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Lock Screen(Disable)" />
+            android:layout_height="40dp"
+            android:layout_toStartOf="@id/disableScreenLock"
+            android:layout_below="@id/screenLockText"
+            android:layout_marginTop="20dp"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:text="Lock Screen (Disable)"
+            android:textSize="16sp"/>
 
-    </LinearLayout>
+    </RelativeLayout>
 </ScrollView>

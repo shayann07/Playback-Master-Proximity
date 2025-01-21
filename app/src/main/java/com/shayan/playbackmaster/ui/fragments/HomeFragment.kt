@@ -51,7 +51,7 @@ class HomeFragment : Fragment() {
     @RequiresApi(Build.VERSION_CODES.M)
     private fun updateSwitchState() {
         val isDisabled = isLockScreenDisabled(requireContext())
-        binding.switchScreenLock.isChecked = isDisabled
+        binding.disableScreenLock.isChecked = isDisabled
         Log.d("HomeFragment", "Switch updated to: $isDisabled")
     }
 
@@ -101,7 +101,7 @@ class HomeFragment : Fragment() {
     private fun initializeScreenLockSwitch() {
         updateSwitchState()
 
-        binding.switchScreenLock.setOnCheckedChangeListener { _, isChecked ->
+        binding.disableScreenLock.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
                 if (isLockScreenDisabled(requireContext())) {
                     showToast("Screen lock is already disabled.")
@@ -119,31 +119,37 @@ class HomeFragment : Fragment() {
 
     @RequiresApi(Build.VERSION_CODES.M)
     private fun setupTimeSelection() {
-        binding.btnSelectTime.setOnClickListener {
+        binding.startTimeBtn.setOnClickListener {
             TimePickerHelper.showTimePicker(requireContext()) { hour, minute ->
                 val startTime = formatTime(hour, minute)
-                TimePickerHelper.showTimePicker(requireContext()) { endHour, endMinute ->
-                    val endTime = formatTime(endHour, endMinute)
-                    binding.txtTimeFrame.text = "Start: $startTime, End: $endTime"
-                    viewModel.saveVideoDetails(
-                        viewModel.videoUri.value.orEmpty(), startTime, endTime
-                    )
+
+                    binding.startTimeBtn.text= startTime
+
                     checkPrerequisites()
                 }
             }
+        binding.endTimeBtn.setOnClickListener{
+            TimePickerHelper.showTimePicker(requireContext()) { hour, minute ->
+                val endTime = formatTime(hour, minute)
+
+                binding.startTimeBtn.text= endTime
+
+                checkPrerequisites()
+            }
         }
-    }
+        }
+
 
     private fun setupVideoUpload() {
-        binding.btnUploadVideo.setOnClickListener {
+        binding.uploadBtn.setOnClickListener {
             val intent = Intent(Intent.ACTION_PICK).apply { type = "video/*" }
             startActivityForResult(intent, Constants.VIDEO_PICK_REQUEST_CODE)
         }
     }
 
     private fun setupPlaybackNavigation() {
-        binding.switchAutoPlay.visibility = View.GONE
-        binding.btnNavigateToPlayback.apply {
+        binding.autoplayBtn.visibility = View.GONE
+        binding.playBtn.apply {
             visibility = View.GONE
             setOnClickListener {
                 requireActivity().findNavController(R.id.nav_host_fragment)
@@ -162,8 +168,8 @@ class HomeFragment : Fragment() {
             showToast("Please set a time frame")
             return
         }
-        binding.btnNavigateToPlayback.visibility = View.VISIBLE
-        binding.switchAutoPlay.visibility = View.VISIBLE
+        binding.playBtn.visibility = View.VISIBLE
+        binding.autoplayBtn.visibility = View.VISIBLE
     }
 
     private fun isVideoFormatSupported(uri: Uri): Boolean {
@@ -176,7 +182,7 @@ class HomeFragment : Fragment() {
         if (requestCode == Constants.VIDEO_PICK_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             data?.data?.let { videoUri ->
                 if (isVideoFormatSupported(videoUri)) {
-                    binding.txtVideoUri.text = videoUri.toString()
+                    binding.videoUriTxt.text = videoUri.toString()
                     viewModel.saveVideoDetails(
                         videoUri.toString(),
                         viewModel.startTime.value.orEmpty(),
@@ -184,7 +190,7 @@ class HomeFragment : Fragment() {
                     )
                     checkPrerequisites()
                 } else {
-                    binding.btnNavigateToPlayback.visibility = View.GONE
+                    binding.playBtn.visibility = View.GONE
                     showToast("Unsupported video format")
                 }
             }
