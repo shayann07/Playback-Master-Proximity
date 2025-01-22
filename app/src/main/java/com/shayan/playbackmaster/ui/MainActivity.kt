@@ -13,7 +13,7 @@ import com.shayan.playbackmaster.ui.fragments.ExitPlaybackListener
 
 class MainActivity : AppCompatActivity(), ExitPlaybackListener {
 
-    private val playbackReceiver = PlaybackReceiver(this) // Pass the listener
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,12 +41,9 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter(Intent.ACTION_SCREEN_OFF)
-        registerReceiver(playbackReceiver, filter)
+
     }
 
-    override fun onPause() {
-        super.onPause()
-        unregisterReceiver(playbackReceiver)
-    }
+
 
 }
