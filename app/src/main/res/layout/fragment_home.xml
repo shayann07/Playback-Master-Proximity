@@ -118,6 +118,19 @@
             android:text="Video Uri"
             android:textColor="#112BBF" />
 
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/disableScreenLock"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_below="@id/circular_shape_lower"
+            android:layout_marginLeft="25dp"
+            android:layout_marginTop="26dp"
+            android:fontFamily="@font/roboto_medium"
+            android:paddingStart="8dp"
+            android:text="Lock Screen (Disable)"
+            android:textColor="@color/white"
+            android:textSize="15sp" />
+
         <androidx.cardview.widget.CardView
             android:id="@+id/circular_shape_lower"
             android:layout_width="150dp"
@@ -164,32 +177,5 @@
                 </androidx.cardview.widget.CardView>
             </androidx.cardview.widget.CardView>
         </androidx.cardview.widget.CardView>
-
-        <TextView
-            android:id="@+id/screenLockText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_below="@id/circular_shape_lower"
-            android:layout_centerHorizontal="true"
-            android:layout_marginTop="10dp"
-            android:fontFamily="@font/roboto_bold"
-            android:text="Screen Lock Setting"
-            android:textColor="@color/white"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-
-        <com.google.android.material.materialswitch.MaterialSwitch
-            android:id="@+id/disableScreenLock"
-            android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_below="@id/screenLockText"
-            android:layout_centerHorizontal="true"
-            android:layout_marginLeft="25dp"
-            android:layout_marginTop="20dp"
-            android:fontFamily="@font/roboto_medium"
-            android:paddingStart="8dp"
-            android:text="Lock Screen (Disable)"
-            android:textColor="@color/white"
-            android:textSize="15sp" />
     </RelativeLayout>
 </ScrollView>
