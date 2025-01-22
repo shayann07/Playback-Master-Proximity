@@ -19,8 +19,10 @@ import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.shayan.playbackmaster.R
+import com.shayan.playbackmaster.data.preferences.PreferencesHelper
 import com.shayan.playbackmaster.databinding.FragmentHomeBinding
 import com.shayan.playbackmaster.ui.viewmodel.AppViewModel
+import com.shayan.playbackmaster.utils.AlarmUtils
 import com.shayan.playbackmaster.utils.Constants
 import com.shayan.playbackmaster.utils.TimePickerHelper
 
@@ -66,6 +68,25 @@ class HomeFragment : Fragment() {
         }
     }
 
+    private fun scheduleAlarm() {
+        val videoUri = viewModel.videoUri.value.orEmpty()
+        val startTime = viewModel.startTime.value.orEmpty()
+        val endTime = viewModel.endTime.value.orEmpty()
+
+        if (videoUri.isNotEmpty() && startTime.isNotEmpty() && endTime.isNotEmpty()) {
+            // Schedule the alarm
+            AlarmUtils.scheduleDailyAlarm(requireContext(), videoUri, startTime, endTime)
+
+            // Save the details to preferences
+            val preferencesHelper = PreferencesHelper(requireContext())
+            preferencesHelper.saveVideoDetails(videoUri, startTime, endTime)
+
+            showToast("Playback scheduled at $startTime daily!")
+        } else {
+            showToast("Please set a valid video, start time, and end time.")
+        }
+    }
+
     private fun setupTimeSelection() {
         binding.startTimeBtn.setOnClickListener {
             TimePickerHelper.showTimePicker(requireContext()) { hour, minute ->
@@ -73,6 +94,7 @@ class HomeFragment : Fragment() {
                 viewModel.saveVideoDetails(
                     viewModel.videoUri.value.orEmpty(), startTime, viewModel.endTime.value.orEmpty()
                 )
+                scheduleAlarm()
             }
         }
 
@@ -82,6 +104,7 @@ class HomeFragment : Fragment() {
                 viewModel.saveVideoDetails(
                     viewModel.videoUri.value.orEmpty(), viewModel.startTime.value.orEmpty(), endTime
                 )
+                scheduleAlarm()
             }
         }
     }
@@ -170,6 +193,7 @@ class HomeFragment : Fragment() {
                     viewModel.startTime.value.orEmpty(),
                     viewModel.endTime.value.orEmpty()
                 )
+                scheduleAlarm()
             }
         }
     }

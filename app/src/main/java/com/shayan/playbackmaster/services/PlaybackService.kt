@@ -1,9 +1,10 @@
 package com.shayan.playbackmaster.services
 
 import android.app.Service
-import android.content.Context
 import android.content.Intent
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.widget.Toast
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
@@ -15,47 +16,87 @@ import java.util.Locale
 class PlaybackService : Service() {
 
     private var exoPlayer: ExoPlayer? = null
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val preferencesHelper = PreferencesHelper(this)
         val startTime = preferencesHelper.getStartTime()
         val endTime = preferencesHelper.getEndTime()
-        val currentTime = getCurrentTime()
+        val currentTime = System.currentTimeMillis()
 
-        if (startTime != null && endTime != null && currentTime in startTime..endTime) {
-            val videoUri = preferencesHelper.getVideoUri()
-            if (videoUri != null) {
-                startPlayback(videoUri)
+        // Schedule playback start if within the valid time frame
+        if (startTime != null && endTime != null) {
+            val startMillis = convertTimeToMillis(startTime)
+            val endMillis = convertTimeToMillis(endTime)
+
+            if (currentTime < startMillis) {
+                // Schedule playback to start at the specified `startTime`
+                val delayToStart = startMillis - currentTime
+                handler.postDelayed({
+                    startPlayback(preferencesHelper.getVideoUri(), endMillis)
+                }, delayToStart)
+                Toast.makeText(this, "Playback scheduled at $startTime", Toast.LENGTH_SHORT).show()
+            } else if (currentTime in startMillis..endMillis) {
+                // Start playback immediately if within the range
+                startPlayback(preferencesHelper.getVideoUri(), endMillis)
+            } else {
+                // Stop service if outside the playback range
+                stopSelf()
+                Toast.makeText(this, "Playback not scheduled as current time is out of range.", Toast.LENGTH_SHORT).show()
             }
         }
+
         return START_STICKY
     }
 
-    private fun startPlayback(videoUri: String) {
+    private fun startPlayback(videoUri: String?, endMillis: Long) {
+        if (videoUri == null) {
+            stopSelf()
+            return
+        }
+
+        // Initialize ExoPlayer and start playback
         exoPlayer = ExoPlayer.Builder(this).build()
         val mediaItem = MediaItem.fromUri(videoUri)
         exoPlayer?.setMediaItem(mediaItem)
         exoPlayer?.prepare()
         exoPlayer?.play()
+
+        Toast.makeText(this, "Playback started", Toast.LENGTH_SHORT).show()
+
+
+        val delayToEnd = endMillis - System.currentTimeMillis()
+        if (delayToEnd > 0) {
+            handler.postDelayed({
+                stopPlayback()
+            }, delayToEnd)
+        }
     }
 
-    private fun getCurrentTime(): String {
-        val calendar = Calendar.getInstance()
+    private fun stopPlayback() {
+        exoPlayer?.stop()
+        exoPlayer?.release()
+        exoPlayer = null
+        stopSelf() // Stop the service
+        Toast.makeText(this, "Playback stopped", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun convertTimeToMillis(time: String): Long {
         val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-        return formatter.format(calendar.time)
+        val calendar = Calendar.getInstance()
+        val (hour, minute) = time.split(":").map { it.toInt() }
+        calendar.set(Calendar.HOUR_OF_DAY, hour)
+        calendar.set(Calendar.MINUTE, minute)
+        calendar.set(Calendar.SECOND, 0)
+        return calendar.timeInMillis
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun stopPlayback(context: Context) {
-        context.stopService(Intent(context, PlaybackService::class.java))
-        Toast.makeText(context, "Playback stopped", Toast.LENGTH_SHORT).show()
-    }
-
     override fun onDestroy() {
         super.onDestroy()
+        handler.removeCallbacksAndMessages(null) // Cancel all scheduled tasks
         exoPlayer?.release()
         exoPlayer = null
-        stopSelf() // Ensure the service stops
     }
 }
