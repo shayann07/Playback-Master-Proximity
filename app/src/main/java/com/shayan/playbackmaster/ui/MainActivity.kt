@@ -9,7 +9,6 @@ import androidx.navigation.findNavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.findNavController
 import com.shayan.playbackmaster.R
-import com.shayan.playbackmaster.receivers.PlaybackReceiver
 import com.shayan.playbackmaster.ui.fragments.ExitPlaybackListener
 
 class MainActivity : AppCompatActivity(), ExitPlaybackListener {

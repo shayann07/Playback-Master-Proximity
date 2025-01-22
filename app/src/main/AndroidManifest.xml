@@ -31,12 +31,6 @@
             </intent-filter>
         </activity>
 
-        <!-- Receiver for Playback Control -->
-        <receiver
-            android:name=".receivers.PlaybackReceiver"
-            android:enabled="true"
-            android:exported="true" />
-
         <service
             android:name=".services.PlaybackService"
             android:exported="false" />
