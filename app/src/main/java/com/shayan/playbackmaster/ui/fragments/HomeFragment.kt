@@ -1,9 +1,11 @@
 package com.shayan.playbackmaster.ui.fragments
 
 import android.app.Activity
+import android.app.AlarmManager
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -74,6 +76,16 @@ class HomeFragment : Fragment() {
         val startTime = viewModel.startTime.value.orEmpty()
         val endTime = viewModel.endTime.value.orEmpty()
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager =
+                requireContext().getSystemService(Context.ALARM_SERVICE) as AlarmManager
+            if (!alarmManager.canScheduleExactAlarms()) {
+                navigateToAlarmSettings()
+                showToast("Permission required to schedule exact alarms. Please enable it in settings.")
+                return
+            }
+        }
+
         if (videoUri.isNotEmpty() && startTime.isNotEmpty() && endTime.isNotEmpty()) {
             // Schedule the alarm
             AlarmUtils.scheduleDailyAlarm(requireContext(), videoUri, startTime, endTime)
@@ -86,6 +98,15 @@ class HomeFragment : Fragment() {
         } else {
             showToast("Please set a valid video, start time, and end time.")
         }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun navigateToAlarmSettings() {
+        val intent = Intent().apply {
+            action = android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM
+            data = Uri.parse("package:${requireContext().packageName}")
+        }
+        startActivity(intent)
     }
 
     @RequiresApi(Build.VERSION_CODES.M)
