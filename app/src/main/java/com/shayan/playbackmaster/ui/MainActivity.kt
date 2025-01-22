@@ -42,15 +42,27 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
     }
 
     private fun hasStoragePermission(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this, Manifest.permission.READ_EXTERNAL_STORAGE
-        ) == PackageManager.PERMISSION_GRANTED
+        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.READ_MEDIA_VIDEO
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
+        }
     }
 
     private fun requestStoragePermission() {
-        ActivityCompat.requestPermissions(
-            this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), REQUEST_CODE_READ_STORAGE
-        )
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this, arrayOf(Manifest.permission.READ_MEDIA_VIDEO), REQUEST_CODE_READ_STORAGE
+            )
+        } else {
+            ActivityCompat.requestPermissions(
+                this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), REQUEST_CODE_READ_STORAGE
+            )
+        }
     }
 
     private fun handlePlaybackIntent() {

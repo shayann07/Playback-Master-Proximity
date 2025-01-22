@@ -24,25 +24,25 @@ class PlaybackService : Service() {
         val endTime = preferencesHelper.getEndTime()
         val currentTime = System.currentTimeMillis()
 
-        // Schedule playback start if within the valid time frame
         if (startTime != null && endTime != null) {
             val startMillis = convertTimeToMillis(startTime)
             val endMillis = convertTimeToMillis(endTime)
 
             if (currentTime < startMillis) {
-                // Schedule playback to start at the specified `startTime`
                 val delayToStart = startMillis - currentTime
                 handler.postDelayed({
                     startPlayback(preferencesHelper.getVideoUri(), endMillis)
                 }, delayToStart)
                 Toast.makeText(this, "Playback scheduled at $startTime", Toast.LENGTH_SHORT).show()
             } else if (currentTime in startMillis..endMillis) {
-                // Start playback immediately if within the range
                 startPlayback(preferencesHelper.getVideoUri(), endMillis)
             } else {
-                // Stop service if outside the playback range
                 stopSelf()
-                Toast.makeText(this, "Playback not scheduled as current time is out of range.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    "Playback not scheduled as current time is out of range.",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
@@ -55,7 +55,6 @@ class PlaybackService : Service() {
             return
         }
 
-        // Initialize ExoPlayer and start playback
         exoPlayer = ExoPlayer.Builder(this).build()
         val mediaItem = MediaItem.fromUri(videoUri)
         exoPlayer?.setMediaItem(mediaItem)
@@ -63,7 +62,6 @@ class PlaybackService : Service() {
         exoPlayer?.play()
 
         Toast.makeText(this, "Playback started", Toast.LENGTH_SHORT).show()
-
 
         val delayToEnd = endMillis - System.currentTimeMillis()
         if (delayToEnd > 0) {
@@ -77,7 +75,7 @@ class PlaybackService : Service() {
         exoPlayer?.stop()
         exoPlayer?.release()
         exoPlayer = null
-        stopSelf() // Stop the service
+        stopSelf()
         Toast.makeText(this, "Playback stopped", Toast.LENGTH_SHORT).show()
     }
 
@@ -95,7 +93,7 @@ class PlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        handler.removeCallbacksAndMessages(null) // Cancel all scheduled tasks
+        handler.removeCallbacksAndMessages(null)
         exoPlayer?.release()
         exoPlayer = null
     }

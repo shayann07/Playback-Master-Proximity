@@ -20,14 +20,22 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _endTime = MutableLiveData<String?>()
     val endTime: LiveData<String?> = _endTime
 
-    // Load video details from preferences
+    /**
+     * Loads video details from preferences and updates the LiveData.
+     */
     fun loadVideoDetails() {
         _videoUri.value = preferencesHelper.getVideoUri()
         _startTime.value = preferencesHelper.getStartTime()
         _endTime.value = preferencesHelper.getEndTime()
     }
 
-    // Save video details to preferences
+    /**
+     * Saves video details to preferences and updates the LiveData.
+     *
+     * @param uri The URI of the video.
+     * @param startTime The start time of the video playback.
+     * @param endTime The end time of the video playback.
+     */
     fun saveVideoDetails(uri: String, startTime: String, endTime: String) {
         preferencesHelper.saveVideoDetails(uri, startTime, endTime)
         _videoUri.value = uri
@@ -35,7 +43,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _endTime.value = endTime
     }
 
-    // Clear all saved preferences
+    /**
+     * Clears all saved video details from preferences and resets the LiveData.
+     */
     fun clearVideoDetails() {
         preferencesHelper.clearPreferences()
         _videoUri.value = null

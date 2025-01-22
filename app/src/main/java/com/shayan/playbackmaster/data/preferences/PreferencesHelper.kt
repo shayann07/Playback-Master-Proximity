@@ -1,14 +1,16 @@
 package com.shayan.playbackmaster.data.preferences
 
 import android.content.Context
+import android.content.SharedPreferences
 
 class PreferencesHelper(context: Context) {
 
-    private val sharedPreferences =
-        context.getSharedPreferences("VideoPlaybackPrefs", Context.MODE_PRIVATE)
-    private val editor = sharedPreferences.edit()
+    private val sharedPreferences: SharedPreferences =
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val editor: SharedPreferences.Editor = sharedPreferences.edit()
 
     companion object {
+        private const val PREFS_NAME = "VideoPlaybackPrefs"
         const val KEY_VIDEO_URI = "video_uri"
         const val KEY_START_TIME = "start_time"
         const val KEY_END_TIME = "end_time"

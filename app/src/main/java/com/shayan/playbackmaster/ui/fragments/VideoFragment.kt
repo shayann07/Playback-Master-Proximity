@@ -45,8 +45,7 @@ class VideoFragment : Fragment() {
             viewLifecycleOwner,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {}
-            }
-        )
+            })
         return binding.root
     }
 
@@ -54,18 +53,15 @@ class VideoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Lock UI to prevent interruptions
         requireActivity().window.setFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_SECURE,
             WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_SECURE
         )
 
-        // Handle playback details from arguments or ViewModel
         val videoUri = arguments?.getString("VIDEO_URI") ?: viewModel.videoUri.value
         val startTime = arguments?.getString("START_TIME") ?: viewModel.startTime.value
         val endTime = arguments?.getString("END_TIME") ?: viewModel.endTime.value
 
-        // Log playback details
         Log.d("VideoFragment", "Video URI: $videoUri, Start Time: $startTime, End Time: $endTime")
 
         if (videoUri != null && isWithinPlaybackPeriod(startTime, endTime)) {
@@ -91,7 +87,6 @@ class VideoFragment : Fragment() {
         return currentTime in startTime..endTime
     }
 
-    // Helper to get the current time in "HH:mm" format
     private fun getCurrentTime(): String {
         val calendar = Calendar.getInstance()
         val hour = calendar.get(Calendar.HOUR_OF_DAY)
@@ -110,7 +105,7 @@ class VideoFragment : Fragment() {
                 stopPlayback()
             }, delay)
         } else {
-            stopPlayback() // Stop immediately if the end time has passed
+            stopPlayback()
         }
     }
 
@@ -119,8 +114,14 @@ class VideoFragment : Fragment() {
         exoPlayer?.release()
         exoPlayer = null
         releaseWakeLock()
-        Toast.makeText(requireContext(), "Playback stopped at end time", Toast.LENGTH_SHORT).show()
-        findNavController().navigate(R.id.homeFragment) // Navigate back to home after stopping
+        if (isAdded) {
+            context?.let {
+                Toast.makeText(it, "Playback stopped at end time", Toast.LENGTH_SHORT).show()
+            }
+            findNavController().navigate(R.id.homeFragment)
+        } else {
+            Log.e("VideoFragment", "Fragment is not attached to context. Unable to navigate.")
+        }
     }
 
     private fun convertTimeToMillis(time: String): Long {
@@ -140,7 +141,6 @@ class VideoFragment : Fragment() {
         val mediaItem = MediaItem.fromUri(uri)
         exoPlayer?.setMediaItem(mediaItem)
 
-        // Enable looping
         exoPlayer?.repeatMode = ExoPlayer.REPEAT_MODE_ALL
 
         exoPlayer?.prepare()
@@ -156,7 +156,7 @@ class VideoFragment : Fragment() {
             PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
             "PlaybackMaster::WakeLock"
         )
-        wakeLock?.acquire(10 * 60 * 1000L /* 10 minutes */)
+        wakeLock?.acquire(10 * 60 * 1000L)
         screenTurnedOnByApp = true
         Log.d("VideoFragment", "Wake lock acquired to turn on the screen.")
     }

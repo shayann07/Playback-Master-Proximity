@@ -68,6 +68,7 @@ class HomeFragment : Fragment() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     private fun scheduleAlarm() {
         val videoUri = viewModel.videoUri.value.orEmpty()
         val startTime = viewModel.startTime.value.orEmpty()
@@ -87,6 +88,7 @@ class HomeFragment : Fragment() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     private fun setupTimeSelection() {
         binding.startTimeBtn.setOnClickListener {
             TimePickerHelper.showTimePicker(requireContext()) { hour, minute ->
@@ -108,7 +110,6 @@ class HomeFragment : Fragment() {
             }
         }
     }
-    //cooment kr k push kr
 
     private fun setupVideoUpload() {
         binding.uploadBtn.setOnClickListener {
@@ -184,6 +185,7 @@ class HomeFragment : Fragment() {
         binding.videoUriTxt.visibility = if (isVideoUploaded) View.VISIBLE else View.GONE
     }
 
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == Constants.VIDEO_PICK_REQUEST_CODE && resultCode == Activity.RESULT_OK) {

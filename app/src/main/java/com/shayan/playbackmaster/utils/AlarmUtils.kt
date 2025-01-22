@@ -4,11 +4,14 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
+import androidx.annotation.RequiresApi
 import com.shayan.playbackmaster.ui.MainActivity
 import java.util.Calendar
 
 object AlarmUtils {
 
+    @RequiresApi(Build.VERSION_CODES.M)
     fun scheduleDailyAlarm(context: Context, videoUri: String, startTime: String, endTime: String) {
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val intent = Intent(context, MainActivity::class.java).apply {
