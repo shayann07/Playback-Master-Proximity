@@ -180,7 +180,6 @@ class HomeFragment : Fragment() {
         val isVideoUploaded = !viewModel.videoUri.value.isNullOrEmpty()
 
         binding.circularShapeLower.visibility = if (isVideoUploaded) View.VISIBLE else View.GONE
-        binding.autoplayBtn.visibility = if (isVideoUploaded) View.VISIBLE else View.GONE
         binding.videoUriTxt.visibility = if (isVideoUploaded) View.VISIBLE else View.GONE
     }
 
