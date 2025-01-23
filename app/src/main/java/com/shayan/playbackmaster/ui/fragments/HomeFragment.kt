@@ -3,8 +3,10 @@ package com.shayan.playbackmaster.ui.fragments
 import android.app.Activity
 import android.app.AlarmManager
 import android.app.KeyguardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +25,7 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.data.preferences.PreferencesHelper
 import com.shayan.playbackmaster.databinding.FragmentHomeBinding
+import com.shayan.playbackmaster.receivers.BootReceiver
 import com.shayan.playbackmaster.ui.viewmodel.AppViewModel
 import com.shayan.playbackmaster.utils.AlarmUtils
 import com.shayan.playbackmaster.utils.Constants
@@ -70,11 +73,21 @@ class HomeFragment : Fragment() {
         }
     }
 
+
     @RequiresApi(Build.VERSION_CODES.M)
     private fun scheduleAlarm() {
         val videoUri = viewModel.videoUri.value.orEmpty()
         val startTime = viewModel.startTime.value.orEmpty()
         val endTime = viewModel.endTime.value.orEmpty()
+        val bootReceiver = context?.let { ComponentName(it, BootReceiver::class.java) }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && bootReceiver != null) {
+            context?.packageManager?.setComponentEnabledSetting(
+                bootReceiver,
+                PackageManager.COMPONENT_ENABLED_STATE_ENABLED, // Enable or disable the receiver
+                PackageManager.DONT_KILL_APP // Optional flags
+            )
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager =

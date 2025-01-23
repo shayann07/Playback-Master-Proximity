@@ -131,6 +131,8 @@ class VideoFragment : Fragment() {
                 Toast.makeText(it, "Playback stopped at end time", Toast.LENGTH_SHORT).show()
             }
             findNavController().navigate(R.id.homeFragment)
+           
+
         } else {
             Log.e("VideoFragment", "Fragment is not attached to context. Unable to navigate.")
         }
