@@ -2,6 +2,7 @@ package com.shayan.playbackmaster.ui.fragments
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -16,6 +17,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.navigation.findNavController
 import androidx.navigation.fragment.findNavController
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
@@ -41,8 +43,10 @@ class VideoFragment : Fragment() {
     ): View {
         _binding = FragmentVideoBinding.inflate(inflater, container, false)
 
-        requireActivity().onBackPressedDispatcher.addCallback(
-            viewLifecycleOwner,
+        // Set the orientation to landscape
+        requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {}
             })
@@ -74,7 +78,15 @@ class VideoFragment : Fragment() {
 
         binding.videoView.useController = false
         binding.fabAction1.setOnClickListener {
-            findNavController().navigate(R.id.action_videoFragment_to_homeFragment)
+            try {
+                // Revert to portrait before navigating
+                requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+                // Use NavController to navigate
+                findNavController().navigate(R.id.action_videoFragment_to_homeFragment)
+            } catch (e: Exception) {
+                Log.e("VideoFragment", "Navigation failed: ${e.message}")
+            }
         }
         binding.fabAction2.setOnClickListener {
             requireActivity().finishAffinity()
@@ -188,6 +200,10 @@ class VideoFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+
+        // Revert the orientation to unspecified when leaving the fragment
+        requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
         releaseWakeLock()
         exoPlayer?.release()
         exoPlayer = null

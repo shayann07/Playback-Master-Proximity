@@ -1,10 +1,16 @@
 package com.shayan.playbackmaster.ui
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
@@ -13,9 +19,10 @@ import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.findNavController
 import com.shayan.playbackmaster.R
+import android.os.PowerManager
 import com.shayan.playbackmaster.ui.fragments.ExitPlaybackListener
 
-class MainActivity : AppCompatActivity(), ExitPlaybackListener {
+class MainActivity<PowerManager> : AppCompatActivity(), ExitPlaybackListener {
 
     private lateinit var navHostFragment: NavHostFragment
     private lateinit var navController: NavController
@@ -33,6 +40,11 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
 
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
 
+        // Check if battery optimization is ignored
+     /*   if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !isBatteryOptimizationIgnored() ) {
+            promptBatteryOptimization()  // Show the dialog to ask for user permission
+        }*/
+
         // Check for permissions and handle playback intent
         if (hasStoragePermission()) {
             handlePlaybackIntent()
@@ -40,6 +52,48 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
             requestStoragePermission()
         }
     }
+
+  /*  private fun isBatteryOptimizationIgnored(): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+            try {
+                return powerManager.isIgnoringBatteryOptimizations(packageName)
+            } catch (e: NoSuchMethodError) {
+                // Handle the case where the method is not available, e.g. for older versions of Android
+                e.printStackTrace()
+            }
+        }
+        // For devices below Android M, battery optimization is not a concern
+        return true
+    }
+
+    private fun promptBatteryOptimization() {
+        // Show a dialog explaining the need to disable battery optimization
+        AlertDialog.Builder(this)
+            .setTitle("Battery Optimization")
+            .setMessage("For uninterrupted playback, please disable battery optimization for this app. Do you want to open the settings?")
+            .setPositiveButton("Yes") { _, _ ->
+                // If the user agrees, redirect them to the battery optimization settings
+                batteryOptimization()
+            }
+            .setNegativeButton("No", null)  // If they cancel, do nothing
+            .show()
+    }
+
+    private fun batteryOptimization(): Boolean {
+        // If the device is Android M (API 23) or higher, navigate to battery optimization settings
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+            try {
+                startActivity(intent)
+                return true  // Successfully opened the settings
+            } catch (e: Exception) {
+                e.printStackTrace()
+                return false  // Failed to open settings
+            }
+        }
+        return false  // Battery optimization settings are not available for this Android version
+    }*/
 
     private fun hasStoragePermission(): Boolean {
         return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -52,6 +106,9 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
+
+
+
 
     private fun requestStoragePermission() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {

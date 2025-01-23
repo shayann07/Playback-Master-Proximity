@@ -24,6 +24,8 @@
         tools:layout="@layout/fragment_video">
         <action
             android:id="@+id/action_videoFragment_to_homeFragment"
-            app:destination="@id/homeFragment" />
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/videoFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 </navigation>

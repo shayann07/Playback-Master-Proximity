@@ -1,7 +1,7 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:background="@color/black">
 
     <!-- ExoPlayer Video View -->
@@ -9,9 +9,9 @@
         android:id="@+id/videoView"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:focusable="false"
         android:clickable="false"
         android:enabled="false"
+        android:focusable="false"
 
         />
 
@@ -29,31 +29,32 @@
 
     <!-- Floating Action Button 1 -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab_action_1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:layout_alignParentStart="true"
-        android:layout_marginBottom="50dp"
-        android:contentDescription="Action 1"
-        android:visibility="visible"
-        android:alpha="0"
-        app:fabCustomSize="100dp"
-        android:tint="@android:color/white" />
-
-    <!-- Floating Action Button 2 -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fab_action_2"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:layout_alignParentStart="true"
+        android:layout_margin="16dp"
+        android:layout_marginBottom="50dp"
+        android:alpha="0"
+        android:contentDescription="Action 1"
+        android:tint="@android:color/white"
         android:visibility="visible"
-        app:fabCustomSize="100dp"
+        app:fabCustomSize="100dp" />
+
+    <!-- Floating Action Button 2 -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/fab_action_1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_alignParentBottom="true"
+        android:layout_margin="16dp"
         android:alpha="0"
         android:contentDescription="Action 2"
+        android:tint="@android:color/white"
+        android:visibility="visible"
 
-        android:tint="@android:color/white" />
+        app:fabCustomSize="100dp" />
 
 </RelativeLayout>
