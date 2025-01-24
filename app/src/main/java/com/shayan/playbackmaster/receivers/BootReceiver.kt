@@ -7,7 +7,6 @@ import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import com.shayan.playbackmaster.data.preferences.PreferencesHelper
-import com.shayan.playbackmaster.services.PlaybackService
 import com.shayan.playbackmaster.utils.AlarmUtils
 
 class BootReceiver : BroadcastReceiver() {
@@ -16,13 +15,12 @@ class BootReceiver : BroadcastReceiver() {
         private const val TAG = "BootReceiver"
     }
 
-    @RequiresApi(Build.VERSION_CODES.O)
+    @RequiresApi(Build.VERSION_CODES.M)
     override fun onReceive(context: Context, intent: Intent?) {
         // Check if the received intent action is BOOT_COMPLETED
         if (intent?.action == Intent.ACTION_BOOT_COMPLETED) {
             Log.i(TAG, "Device boot completed. Checking preferences for alarm rescheduling.")
-            val serviceIntent = Intent(context, PlaybackService::class.java)
-            context.startForegroundService(serviceIntent)
+
             val preferences = PreferencesHelper(context)
 
             // Retrieve preferences for video playback
