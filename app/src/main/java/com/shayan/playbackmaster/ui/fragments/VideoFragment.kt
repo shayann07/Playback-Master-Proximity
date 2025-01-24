@@ -105,7 +105,7 @@ class VideoFragment : Fragment() {
         val minute = calendar.get(Calendar.MINUTE)
         return "$hour:${minute.toString().padStart(2, '0')}"
     }
-//scheduleStop
+
     private fun scheduleStopAtEndTime(endTime: String?) {
         if (endTime == null) return
         val endMillis = convertTimeToMillis(endTime)
