@@ -57,13 +57,13 @@ class PlaybackService : Service() {
             if (currentTime < startMillis) {
                 val delayToStart = startMillis - currentTime
                 handler.postDelayed({
-                    startPlayback(preferencesHelper.getVideoUri(), endMillis)
+                    startPlaybackIfConditionsMet(preferencesHelper)
                 }, delayToStart)
                 Toast.makeText(this, "Playback scheduled at $startTime", Toast.LENGTH_SHORT).show()
-            } else if (currentTime in startMillis..endMillis && isProximityDetected) {
-                startPlayback(preferencesHelper.getVideoUri(), endMillis)
+            } else if (currentTime in startMillis..endMillis) {
+                startPlaybackIfConditionsMet(preferencesHelper)
             } else {
-                stopSelf()
+                stopPlayback()
                 Toast.makeText(
                     this,
                     "Playback not scheduled as current time is out of range.",
@@ -75,6 +75,14 @@ class PlaybackService : Service() {
 
     private fun startPlaybackIfScheduled(preferencesHelper: PreferencesHelper) {
         if (isWithinScheduledTime(preferencesHelper)) {
+            val videoUri = preferencesHelper.getVideoUri()
+            val endMillis = convertTimeToMillis(preferencesHelper.getEndTime() ?: "")
+            startPlayback(videoUri, endMillis)
+        }
+    }
+
+    private fun startPlaybackIfConditionsMet(preferencesHelper: PreferencesHelper) {
+        if (isProximityDetected && isWithinScheduledTime(preferencesHelper)) {
             val videoUri = preferencesHelper.getVideoUri()
             val endMillis = convertTimeToMillis(preferencesHelper.getEndTime() ?: "")
             startPlayback(videoUri, endMillis)

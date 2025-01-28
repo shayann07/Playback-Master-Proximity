@@ -13,8 +13,16 @@ import android.os.IBinder
 import androidx.annotation.RequiresApi
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
+import com.shayan.playbackmaster.data.preferences.PreferencesHelper
+import java.text.SimpleDateFormat
+import java.util.*
 
 class UsbProximityService : Service() {
+
+    companion object {
+        // Flag to indicate if the ESP is connected
+        var isConnected: Boolean = false
+    }
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -25,7 +33,8 @@ class UsbProximityService : Service() {
                     val usbManager = getSystemService(USB_SERVICE) as UsbManager
                     setupUsbConnection(device, usbManager)
                 } else {
-                    showSnackbar("USB permission denied.")
+                    broadcastSnackbar("USB permission denied.")
+                    isConnected = false
                 }
             }
         }
@@ -48,15 +57,17 @@ class UsbProximityService : Service() {
         val deviceList = usbManager.deviceList
 
         if (deviceList.isEmpty()) {
-            // No devices connected
-            showSnackbar("ESP is not connected to the mobile device.")
+            isConnected = false
+            broadcastSnackbar("ESP is not connected to the mobile device.")
             sendErrorBroadcast("ESP connection error: No USB devices found.")
         } else {
             val usbDevice = deviceList.values.firstOrNull()
             if (usbDevice != null) {
+                isConnected = true
                 requestUsbPermission(usbDevice)
             } else {
-                showSnackbar("ESP is not connected to the mobile device.")
+                isConnected = false
+                broadcastSnackbar("ESP is not connected to the mobile device.")
                 sendErrorBroadcast("ESP connection error: No valid USB devices found.")
             }
         }
@@ -69,17 +80,15 @@ class UsbProximityService : Service() {
             if (connection != null) {
                 val port = driver.ports.first()
                 port.open(connection)
-                port.setParameters(
-                    115200, // Baud rate
-                    8,      // Data bits
-                    UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE
-                )
+                port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
                 listenToProximitySignals(port)
             } else {
-                showSnackbar("Failed to open USB device.")
+                isConnected = false
+                broadcastSnackbar("Failed to open USB device.")
             }
         } else {
-            showSnackbar("No suitable USB driver found.")
+            isConnected = false
+            broadcastSnackbar("No suitable USB driver found.")
         }
     }
 
@@ -102,26 +111,52 @@ class UsbProximityService : Service() {
                     val len = port.read(buffer, 1000)
                     if (len > 0) {
                         val signal = String(buffer, 0, len, Charsets.UTF_8).trim()
-                        handleSignal(signal)
+                        handleSignalWithinTimeFrame(signal)
                     }
                 }
             } catch (e: Exception) {
-                showSnackbar("Error in USB communication.")
+                isConnected = false
+                broadcastSnackbar("Error in USB communication.")
             } finally {
+                isConnected = false
                 port.close()
             }
         }.start()
     }
 
-    private fun handleSignal(signal: String) {
-        when (signal) {
-            "1" -> sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
-            "0" -> sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
-            else -> showSnackbar("Unknown signal received from the chip.")
+    private fun handleSignalWithinTimeFrame(signal: String) {
+        val preferencesHelper = PreferencesHelper(this)
+        val startTime = preferencesHelper.getStartTime()
+        val endTime = preferencesHelper.getEndTime()
+
+        if (isWithinScheduledTime(startTime, endTime)) {
+            when (signal) {
+                "1" -> sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
+                "0" -> sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
+                else -> broadcastSnackbar("Unknown signal received from the chip.")
+            }
         }
     }
 
-    private fun showSnackbar(message: String) {
+    private fun isWithinScheduledTime(startTime: String?, endTime: String?): Boolean {
+        if (startTime == null || endTime == null) return false
+        val currentTimeMillis = System.currentTimeMillis()
+        val startMillis = convertTimeToMillis(startTime)
+        val endMillis = convertTimeToMillis(endTime)
+        return currentTimeMillis in startMillis..endMillis
+    }
+
+    private fun convertTimeToMillis(time: String): Long {
+        val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+        val calendar = Calendar.getInstance()
+        val (hour, minute) = time.split(":").map { it.toInt() }
+        calendar.set(Calendar.HOUR_OF_DAY, hour)
+        calendar.set(Calendar.MINUTE, minute)
+        calendar.set(Calendar.SECOND, 0)
+        return calendar.timeInMillis
+    }
+
+    private fun broadcastSnackbar(message: String) {
         val intent = Intent("ACTION_SHOW_SNACKBAR").apply {
             putExtra("MESSAGE", message)
         }
