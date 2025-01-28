@@ -17,9 +17,35 @@ class PlaybackService : Service() {
 
     private var exoPlayer: ExoPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
+    private var isProximityDetected = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val preferencesHelper = PreferencesHelper(this)
+
+        when (intent?.action) {
+            "ACTION_PROXIMITY_DETECTED" -> {
+                isProximityDetected = true
+                startPlaybackIfScheduled(preferencesHelper)
+            }
+
+            "ACTION_PROXIMITY_LOST" -> {
+                isProximityDetected = false
+                stopPlayback()
+            }
+
+            "ACTION_USB_ERROR" -> {
+                val errorMessage = intent.getStringExtra("ERROR_MESSAGE")
+                Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
+                stopSelf()
+            }
+
+            else -> handleScheduledPlayback(preferencesHelper)
+        }
+
+        return START_STICKY
+    }
+
+    private fun handleScheduledPlayback(preferencesHelper: PreferencesHelper) {
         val startTime = preferencesHelper.getStartTime()
         val endTime = preferencesHelper.getEndTime()
         val currentTime = System.currentTimeMillis()
@@ -34,7 +60,7 @@ class PlaybackService : Service() {
                     startPlayback(preferencesHelper.getVideoUri(), endMillis)
                 }, delayToStart)
                 Toast.makeText(this, "Playback scheduled at $startTime", Toast.LENGTH_SHORT).show()
-            } else if (currentTime in startMillis..endMillis) {
+            } else if (currentTime in startMillis..endMillis && isProximityDetected) {
                 startPlayback(preferencesHelper.getVideoUri(), endMillis)
             } else {
                 stopSelf()
@@ -45,8 +71,24 @@ class PlaybackService : Service() {
                 ).show()
             }
         }
+    }
 
-        return START_STICKY
+    private fun startPlaybackIfScheduled(preferencesHelper: PreferencesHelper) {
+        if (isWithinScheduledTime(preferencesHelper)) {
+            val videoUri = preferencesHelper.getVideoUri()
+            val endMillis = convertTimeToMillis(preferencesHelper.getEndTime() ?: "")
+            startPlayback(videoUri, endMillis)
+        }
+    }
+
+    private fun isWithinScheduledTime(preferencesHelper: PreferencesHelper): Boolean {
+        val startTime = preferencesHelper.getStartTime() ?: return false
+        val endTime = preferencesHelper.getEndTime() ?: return false
+        val currentTime = System.currentTimeMillis()
+        val startMillis = convertTimeToMillis(startTime)
+        val endMillis = convertTimeToMillis(endTime)
+
+        return currentTime in startMillis..endMillis
     }
 
     private fun startPlayback(videoUri: String?, endMillis: Long) {

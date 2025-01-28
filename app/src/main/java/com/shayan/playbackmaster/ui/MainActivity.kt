@@ -20,6 +20,7 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.findNavController
 import com.shayan.playbackmaster.R
 import android.os.PowerManager
+import com.shayan.playbackmaster.services.UsbProximityService
 import com.shayan.playbackmaster.ui.fragments.ExitPlaybackListener
 import com.shayan.playbackmaster.utils.BatteryOptimizationHelper
 
@@ -29,6 +30,11 @@ class MainActivity<PowerManager> : AppCompatActivity(), ExitPlaybackListener {
     private lateinit var navController: NavController
 
     private val REQUEST_CODE_READ_STORAGE = 100
+
+    private fun startUsbService() {
+        val usbServiceIntent = Intent(this, UsbProximityService::class.java)
+        startService(usbServiceIntent)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -84,6 +90,8 @@ class MainActivity<PowerManager> : AppCompatActivity(), ExitPlaybackListener {
         } else {
             requestStoragePermission()
         }
+
+        startUsbService()
     }
 
 

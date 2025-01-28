@@ -52,4 +52,5 @@ dependencies {
     implementation(libs.exoplayer)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    implementation("com.github.mik3y:usb-serial-for-android:3.7.0")
 }

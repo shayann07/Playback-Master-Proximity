@@ -3,9 +3,11 @@ package com.shayan.playbackmaster.ui.fragments
 import android.app.Activity
 import android.app.AlarmManager
 import android.app.KeyguardManager
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -18,10 +20,12 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
 import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.snackbar.Snackbar
 import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.data.preferences.PreferencesHelper
 import com.shayan.playbackmaster.databinding.FragmentHomeBinding
@@ -36,6 +40,17 @@ class HomeFragment : Fragment() {
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     private val viewModel: AppViewModel by activityViewModels()
+
+    private val snackbarReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "ACTION_SHOW_SNACKBAR") {
+                val message = intent.getStringExtra("MESSAGE")
+                message?.let {
+                    Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -54,6 +69,22 @@ class HomeFragment : Fragment() {
         setupVideoUpload() // Configure video upload functionality
         setupPlaybackNavigation() // Configure navigation to playback screen
         initializeScreenLockSwitch() // Configure screen lock toggle
+    }
+
+    override fun onStart() {
+        super.onStart()
+        val filter = IntentFilter("ACTION_SHOW_SNACKBAR")
+        ContextCompat.registerReceiver(
+            requireContext(),
+            snackbarReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+    }
+
+    override fun onStop() {
+        super.onStop()
+        requireContext().unregisterReceiver(snackbarReceiver)
     }
 
     private fun observeViewModel() {
