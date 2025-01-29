@@ -25,7 +25,7 @@ class PlaybackService : Service() {
         when (intent?.action) {
             "ACTION_PROXIMITY_DETECTED" -> {
                 isProximityDetected = true
-                startPlaybackIfScheduled(preferencesHelper)
+                checkAndStartPlayback(preferencesHelper)
             }
 
             "ACTION_PROXIMITY_LOST" -> {
@@ -38,54 +38,18 @@ class PlaybackService : Service() {
                 Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
                 stopSelf()
             }
-
-            else -> handleScheduledPlayback(preferencesHelper)
         }
 
         return START_STICKY
     }
 
-    private fun handleScheduledPlayback(preferencesHelper: PreferencesHelper) {
-        val startTime = preferencesHelper.getStartTime()
-        val endTime = preferencesHelper.getEndTime()
-        val currentTime = System.currentTimeMillis()
-
-        if (startTime != null && endTime != null) {
-            val startMillis = convertTimeToMillis(startTime)
-            val endMillis = convertTimeToMillis(endTime)
-
-            if (currentTime < startMillis) {
-                val delayToStart = startMillis - currentTime
-                handler.postDelayed({
-                    startPlaybackIfConditionsMet(preferencesHelper)
-                }, delayToStart)
-                Toast.makeText(this, "Playback scheduled at $startTime", Toast.LENGTH_SHORT).show()
-            } else if (currentTime in startMillis..endMillis) {
-                startPlaybackIfConditionsMet(preferencesHelper)
-            } else {
-                stopPlayback()
-                Toast.makeText(
-                    this,
-                    "Playback not scheduled as current time is out of range.",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
-    }
-
-    private fun startPlaybackIfScheduled(preferencesHelper: PreferencesHelper) {
-        if (isWithinScheduledTime(preferencesHelper)) {
-            val videoUri = preferencesHelper.getVideoUri()
-            val endMillis = convertTimeToMillis(preferencesHelper.getEndTime() ?: "")
-            startPlayback(videoUri, endMillis)
-        }
-    }
-
-    private fun startPlaybackIfConditionsMet(preferencesHelper: PreferencesHelper) {
+    private fun checkAndStartPlayback(preferencesHelper: PreferencesHelper) {
         if (isProximityDetected && isWithinScheduledTime(preferencesHelper)) {
             val videoUri = preferencesHelper.getVideoUri()
             val endMillis = convertTimeToMillis(preferencesHelper.getEndTime() ?: "")
             startPlayback(videoUri, endMillis)
+        } else {
+            stopPlayback()
         }
     }
 
@@ -105,19 +69,18 @@ class PlaybackService : Service() {
             return
         }
 
-        exoPlayer = ExoPlayer.Builder(this).build()
-        val mediaItem = MediaItem.fromUri(videoUri)
-        exoPlayer?.setMediaItem(mediaItem)
-        exoPlayer?.prepare()
-        exoPlayer?.play()
-
-        Toast.makeText(this, "Playback started", Toast.LENGTH_SHORT).show()
+        if (exoPlayer == null) {
+            exoPlayer = ExoPlayer.Builder(this).build()
+            val mediaItem = MediaItem.fromUri(videoUri)
+            exoPlayer?.setMediaItem(mediaItem)
+            exoPlayer?.prepare()
+            exoPlayer?.play()
+            Toast.makeText(this, "Playback started", Toast.LENGTH_SHORT).show()
+        }
 
         val delayToEnd = endMillis - System.currentTimeMillis()
         if (delayToEnd > 0) {
-            handler.postDelayed({
-                stopPlayback()
-            }, delayToEnd)
+            handler.postDelayed({ stopPlayback() }, delayToEnd)
         }
     }
 

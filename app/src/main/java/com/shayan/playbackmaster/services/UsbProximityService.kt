@@ -111,7 +111,7 @@ class UsbProximityService : Service() {
                     val len = port.read(buffer, 1000)
                     if (len > 0) {
                         val signal = String(buffer, 0, len, Charsets.UTF_8).trim()
-                        handleSignalWithinTimeFrame(signal)
+                        handleSignal(signal)
                     }
                 }
             } catch (e: Exception) {
@@ -124,22 +124,19 @@ class UsbProximityService : Service() {
         }.start()
     }
 
-    private fun handleSignalWithinTimeFrame(signal: String) {
+    private fun handleSignal(signal: String) {
         val preferencesHelper = PreferencesHelper(this)
-        val startTime = preferencesHelper.getStartTime()
-        val endTime = preferencesHelper.getEndTime()
+        if (!isWithinScheduledTime(preferencesHelper)) return
 
-        if (isWithinScheduledTime(startTime, endTime)) {
-            when (signal) {
-                "1" -> sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
-                "0" -> sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
-                else -> broadcastSnackbar("Unknown signal received from the chip.")
-            }
+        when (signal) {
+            "1" -> sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
+            "0" -> sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
         }
     }
 
-    private fun isWithinScheduledTime(startTime: String?, endTime: String?): Boolean {
-        if (startTime == null || endTime == null) return false
+    private fun isWithinScheduledTime(preferencesHelper: PreferencesHelper): Boolean {
+        val startTime = preferencesHelper.getStartTime() ?: return false
+        val endTime = preferencesHelper.getEndTime() ?: return false
         val currentTimeMillis = System.currentTimeMillis()
         val startMillis = convertTimeToMillis(startTime)
         val endMillis = convertTimeToMillis(endTime)
