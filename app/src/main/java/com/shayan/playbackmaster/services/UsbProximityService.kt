@@ -83,6 +83,10 @@ class UsbProximityService : Service() {
                 port.open(connection)
                 port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
                 listenToProximitySignals(port)
+                isConnected = true
+
+                // ✅ Notify app that ESP is now connected
+                sendBroadcast(Intent("ACTION_USB_CONNECTED"))
             } else {
                 isConnected = false
                 broadcastSnackbar("Failed to open USB device.")
@@ -109,7 +113,7 @@ class UsbProximityService : Service() {
             try {
                 val buffer = ByteArray(100)
                 while (true) {
-                    val len = port.read(buffer, 1000)
+                    val len = port.read(buffer, 500)
                     if (len > 0) {
                         val signal = String(buffer, 0, len, Charsets.UTF_8).trim()
                         handleSignal(signal)

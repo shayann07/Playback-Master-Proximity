@@ -1,14 +1,19 @@
 package com.shayan.playbackmaster.services
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
+import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.data.preferences.PreferencesHelper
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -20,13 +25,24 @@ class PlaybackService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var isProximityDetected = false
 
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        val notification =
+            NotificationCompat.Builder(this, "playback_channel").setContentTitle("Playback Master")
+                .setContentText("Scheduled video playback is running")
+                .setSmallIcon(R.drawable.ic_notification)
+                .setPriority(NotificationCompat.PRIORITY_HIGH).setOngoing(true).build()
+        startForeground(1, notification)
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val preferencesHelper = PreferencesHelper(this)
 
         when (intent?.action) {
             "ACTION_PROXIMITY_DETECTED" -> {
                 isProximityDetected = true
-                checkAndStartPlayback(preferencesHelper)
+                handleProximitySignal("1")
             }
 
             "ACTION_PROXIMITY_LOST" -> {
@@ -34,9 +50,8 @@ class PlaybackService : Service() {
                 stopPlayback()
             }
 
-            "ACTION_ALARM_TRIGGERED" -> { // <-- Handle alarm trigger
+            "ACTION_ALARM_TRIGGERED" -> {
                 Log.d("PlaybackService", "Alarm triggered. Checking playback conditions...")
-
                 if (UsbProximityService.isConnected && isProximityDetected && isWithinScheduledTime(
                         preferencesHelper
                     )
@@ -51,13 +66,29 @@ class PlaybackService : Service() {
         return START_STICKY
     }
 
+    private fun handleProximitySignal(signal: Any) {
+        val signalString = signal.toString()
+        Log.d("PlaybackService", "Received proximity signal: $signalString")
+
+        if (signalString == "1") {
+            handler.postDelayed({
+                if (isProximityDetected) {
+                    val preferencesHelper = PreferencesHelper(this)
+                    checkAndStartPlayback(preferencesHelper)
+                }
+            }, 3000) // 3-second delay to confirm presence
+        } else if (signalString == "0") {
+            stopPlayback()
+        }
+    }
+
     private fun checkAndStartPlayback(preferencesHelper: PreferencesHelper) {
         if (isProximityDetected && isWithinScheduledTime(preferencesHelper) && UsbProximityService.isConnected) {
             val videoUri = preferencesHelper.getVideoUri()
             val endMillis = convertTimeToMillis(preferencesHelper.getEndTime() ?: "")
             startPlayback(videoUri, endMillis)
         } else {
-            stopPlayback() // Stop playback if ANY condition fails
+            stopPlayback()
         }
     }
 
@@ -108,6 +139,16 @@ class PlaybackService : Service() {
         calendar.set(Calendar.MINUTE, minute)
         calendar.set(Calendar.SECOND, 0)
         return calendar.timeInMillis
+    }
+
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "playback_channel", "Playback Master Service", NotificationManager.IMPORTANCE_LOW
+            )
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

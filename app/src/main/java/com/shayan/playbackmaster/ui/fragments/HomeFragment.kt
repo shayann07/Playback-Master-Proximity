@@ -58,6 +58,24 @@ class HomeFragment : Fragment() {
         }
     }
 
+    private val espErrorReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            val errorMessage = intent?.getStringExtra("ERROR_MESSAGE")
+            if (!errorMessage.isNullOrEmpty()) {
+                showEspErrorDialog(errorMessage)
+            }
+        }
+    }
+
+    private val espConnectedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "ACTION_USB_CONNECTED") {
+                dismissPersistentDialog() // ✅ Dismiss dialog when ESP reconnects
+            }
+        }
+    }
+
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -65,9 +83,16 @@ class HomeFragment : Fragment() {
         return binding.root
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
+
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        val connectedFilter = IntentFilter("ACTION_USB_CONNECTED")
+        requireContext().registerReceiver(espConnectedReceiver, connectedFilter, Context.RECEIVER_NOT_EXPORTED)
+
+        val filter = IntentFilter("ACTION_USB_ERROR")
+        requireContext().registerReceiver(espErrorReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
 
         viewModel.loadVideoDetails()
         observeViewModel()
@@ -75,6 +100,13 @@ class HomeFragment : Fragment() {
         setupVideoUpload()
         setupPlaybackNavigation()
         initializeScreenLockSwitch()
+    }
+
+    private fun showEspErrorDialog(errorMessage: String) {
+        AlertDialog.Builder(requireContext()).setTitle("ESP Disconnected").setMessage(errorMessage)
+            .setPositiveButton("OK") { dialog, _ ->
+                dialog.dismiss()
+            }.setCancelable(false).show()
     }
 
     override fun onResume() {
@@ -195,6 +227,17 @@ class HomeFragment : Fragment() {
         binding.endTimeBtn.setOnClickListener {
             TimePickerHelper.showTimePicker(requireContext()) { hour, minute ->
                 val endTime = formatTime(hour, minute)
+                val startTime = viewModel.startTime.value ?: ""
+
+                if (startTime.isNotEmpty() && endTime < startTime) {
+                    Toast.makeText(
+                        requireContext(),
+                        "End time cannot be before start time!",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@showTimePicker
+                }
+
                 viewModel.saveVideoDetails(
                     viewModel.videoUri.value.orEmpty(), viewModel.startTime.value.orEmpty(), endTime
                 )
@@ -235,7 +278,6 @@ class HomeFragment : Fragment() {
                     viewModel.startTime.value.orEmpty(),
                     viewModel.endTime.value.orEmpty()
                 )
-//                scheduleAlarm()
             }
         }
     }
@@ -305,6 +347,8 @@ class HomeFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        requireContext().unregisterReceiver(espErrorReceiver)
+        requireContext().unregisterReceiver(espConnectedReceiver)
         _binding = null
     }
 }

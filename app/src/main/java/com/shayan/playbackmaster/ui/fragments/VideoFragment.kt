@@ -1,10 +1,7 @@
 package com.shayan.playbackmaster.ui.fragments
 
 import android.annotation.SuppressLint
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.net.Uri
 import android.os.Bundle
@@ -18,13 +15,11 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
-import com.google.android.material.snackbar.Snackbar
 import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.databinding.FragmentVideoBinding
 import com.shayan.playbackmaster.ui.viewmodel.AppViewModel
@@ -50,8 +45,7 @@ class VideoFragment : Fragment() {
         // Set the orientation to landscape
         requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
-        requireActivity().onBackPressedDispatcher.addCallback(
-            viewLifecycleOwner,
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {}
             })

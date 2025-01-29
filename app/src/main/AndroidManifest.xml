@@ -58,7 +58,9 @@
 
         <service
             android:name=".services.PlaybackService"
-            android:exported="false" />
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback"
+            android:permission="android.permission.FOREGROUND_SERVICE" />
 
         <receiver
             android:name=".receivers.BootReceiver"

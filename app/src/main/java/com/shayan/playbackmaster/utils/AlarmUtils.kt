@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
-import android.util.Log
 import androidx.annotation.RequiresApi
 import com.shayan.playbackmaster.services.PlaybackService
 import java.util.Calendar
@@ -53,7 +52,5 @@ object AlarmUtils {
         alarmManager.setExactAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent
         )
-
-        Log.d("AlarmUtils", "Alarm set for playback at: $startTime")
     }
 }
