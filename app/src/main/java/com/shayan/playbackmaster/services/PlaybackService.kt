@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import android.widget.Toast
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
@@ -33,10 +34,17 @@ class PlaybackService : Service() {
                 stopPlayback()
             }
 
-            "ACTION_USB_ERROR" -> {
-                val errorMessage = intent.getStringExtra("ERROR_MESSAGE")
-                Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
-                stopSelf()
+            "ACTION_ALARM_TRIGGERED" -> { // <-- Handle alarm trigger
+                Log.d("PlaybackService", "Alarm triggered. Checking playback conditions...")
+
+                if (UsbProximityService.isConnected && isProximityDetected && isWithinScheduledTime(
+                        preferencesHelper
+                    )
+                ) {
+                    checkAndStartPlayback(preferencesHelper)
+                } else {
+                    Log.d("PlaybackService", "Playback not started - Conditions not met.")
+                }
             }
         }
 

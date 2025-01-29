@@ -6,16 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.annotation.RequiresApi
-import com.shayan.playbackmaster.ui.MainActivity
+import com.shayan.playbackmaster.services.PlaybackService
 import java.util.Calendar
 
 object AlarmUtils {
 
     @RequiresApi(Build.VERSION_CODES.M)
     fun scheduleDailyAlarm(context: Context, videoUri: String, startTime: String, endTime: String) {
-
-        // Handle permission for exact alarms (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = context.getSystemService(AlarmManager::class.java)
             if (alarmManager?.canScheduleExactAlarms() == false) {
@@ -33,14 +32,11 @@ object AlarmUtils {
         }
 
         val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("VIDEO_URI", videoUri)
-            putExtra("START_TIME", startTime)
-            putExtra("END_TIME", endTime)
+        val intent = Intent(context, PlaybackService::class.java).apply {
+            action = "ACTION_ALARM_TRIGGERED" // <-- Ensure this matches `PlaybackService`
         }
 
-        val pendingIntent = PendingIntent.getActivity(
+        val pendingIntent = PendingIntent.getService(
             context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -51,11 +47,13 @@ object AlarmUtils {
         calendar.set(Calendar.SECOND, 0)
 
         if (calendar.timeInMillis < System.currentTimeMillis()) {
-            calendar.add(Calendar.DAY_OF_YEAR, 1)
+            calendar.add(Calendar.DAY_OF_YEAR, 1) // Schedule for next day if time has passed
         }
 
         alarmManager.setExactAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent
         )
+
+        Log.d("AlarmUtils", "Alarm set for playback at: $startTime")
     }
 }

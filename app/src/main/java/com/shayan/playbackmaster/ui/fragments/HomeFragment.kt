@@ -12,6 +12,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -28,6 +29,7 @@ import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.databinding.FragmentHomeBinding
 import com.shayan.playbackmaster.services.UsbProximityService
 import com.shayan.playbackmaster.ui.viewmodel.AppViewModel
+import com.shayan.playbackmaster.utils.AlarmUtils
 import com.shayan.playbackmaster.utils.Constants
 import com.shayan.playbackmaster.utils.TimePickerHelper
 import java.text.SimpleDateFormat
@@ -184,6 +186,9 @@ class HomeFragment : Fragment() {
                 viewModel.saveVideoDetails(
                     viewModel.videoUri.value.orEmpty(), startTime, viewModel.endTime.value.orEmpty()
                 )
+
+                // Schedule playback alarm
+                scheduleVideoAlarm()
             }
         }
 
@@ -193,9 +198,25 @@ class HomeFragment : Fragment() {
                 viewModel.saveVideoDetails(
                     viewModel.videoUri.value.orEmpty(), viewModel.startTime.value.orEmpty(), endTime
                 )
+
+                // Schedule playback alarm
+                scheduleVideoAlarm()
             }
         }
     }
+
+    @RequiresApi(Build.VERSION_CODES.M)
+    private fun scheduleVideoAlarm() {
+        val videoUri = viewModel.videoUri.value
+        val startTime = viewModel.startTime.value
+        val endTime = viewModel.endTime.value
+
+        if (!videoUri.isNullOrEmpty() && !startTime.isNullOrEmpty() && !endTime.isNullOrEmpty()) {
+            AlarmUtils.scheduleDailyAlarm(requireContext(), videoUri, startTime, endTime)
+            Log.d("HomeFragment", "Playback alarm scheduled at: $startTime")
+        }
+    }
+
 
     private fun setupVideoUpload() {
         binding.uploadBtn.setOnClickListener {
