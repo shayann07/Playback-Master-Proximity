@@ -58,8 +58,9 @@ class UsbProximityService : Service() {
 
         if (deviceList.isEmpty()) {
             isConnected = false
-            broadcastSnackbar("ESP is not connected to the mobile device.")
-            sendErrorBroadcast("ESP connection error: No USB devices found.")
+            broadcastSnackbar("ESP disconnected.")
+            sendErrorBroadcast("ESP connection lost.")
+            sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
         } else {
             val usbDevice = deviceList.values.firstOrNull()
             if (usbDevice != null) {
@@ -126,8 +127,9 @@ class UsbProximityService : Service() {
 
     private fun handleSignal(signal: String) {
         val preferencesHelper = PreferencesHelper(this)
-        if (!isWithinScheduledTime(preferencesHelper)) return
-
+        if (!isWithinScheduledTime(preferencesHelper) || !isConnected) {
+            return
+        }
         when (signal) {
             "1" -> sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
             "0" -> sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
@@ -137,10 +139,15 @@ class UsbProximityService : Service() {
     private fun isWithinScheduledTime(preferencesHelper: PreferencesHelper): Boolean {
         val startTime = preferencesHelper.getStartTime() ?: return false
         val endTime = preferencesHelper.getEndTime() ?: return false
-        val currentTimeMillis = System.currentTimeMillis()
-        val startMillis = convertTimeToMillis(startTime)
-        val endMillis = convertTimeToMillis(endTime)
-        return currentTimeMillis in startMillis..endMillis
+
+        val calendar = Calendar.getInstance()
+        val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
+        val currentMinute = calendar.get(Calendar.MINUTE)
+
+        val (startHour, startMinute) = startTime.split(":").map { it.toInt() }
+        val (endHour, endMinute) = endTime.split(":").map { it.toInt() }
+
+        return (currentHour > startHour || (currentHour == startHour && currentMinute >= startMinute)) && (currentHour < endHour || (currentHour == endHour && currentMinute <= endMinute))
     }
 
     private fun convertTimeToMillis(time: String): Long {

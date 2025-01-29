@@ -44,12 +44,12 @@ class PlaybackService : Service() {
     }
 
     private fun checkAndStartPlayback(preferencesHelper: PreferencesHelper) {
-        if (isProximityDetected && isWithinScheduledTime(preferencesHelper)) {
+        if (isProximityDetected && isWithinScheduledTime(preferencesHelper) && UsbProximityService.isConnected) {
             val videoUri = preferencesHelper.getVideoUri()
             val endMillis = convertTimeToMillis(preferencesHelper.getEndTime() ?: "")
             startPlayback(videoUri, endMillis)
         } else {
-            stopPlayback()
+            stopPlayback() // Stop playback if ANY condition fails
         }
     }
 
