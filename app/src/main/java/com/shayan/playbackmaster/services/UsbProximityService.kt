@@ -21,22 +21,25 @@ import java.util.*
 class UsbProximityService : Service() {
 
     companion object {
+        private const val TAG = "UsbProximityService"
+        private const val USB_PERMISSION_ACTION = "com.shayan.playbackmaster.USB_PERMISSION"
+
         // Flag to indicate if the ESP is connected
         var isConnected: Boolean = false
-
     }
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == "com.shayan.playbackmaster.USB_PERMISSION") {
+            if (intent?.action == USB_PERMISSION_ACTION) {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                 val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+
                 if (granted && device != null) {
                     val usbManager = getSystemService(USB_SERVICE) as UsbManager
                     setupUsbConnection(device, usbManager)
                 } else {
-                    broadcastSnackbar("USB permission denied.")
                     isConnected = false
+                    broadcastSnackbar("USB permission denied.")
                 }
             }
         }
@@ -45,10 +48,12 @@ class UsbProximityService : Service() {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate() {
         super.onCreate()
-        val filter = IntentFilter("com.shayan.playbackmaster.USB_PERMISSION")
-        registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        Log.d("UsbProximityService", "USB Connected: isConnected = $isConnected")
+        Log.d(TAG, "Service Created. Registering USB Receiver...")
 
+        registerReceiver(
+            usbReceiver, IntentFilter(USB_PERMISSION_ACTION), Context.RECEIVER_NOT_EXPORTED
+        )
+        checkEspConnection()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -84,16 +89,19 @@ class UsbProximityService : Service() {
             val connection = usbManager.openDevice(driver.device)
             if (connection != null) {
                 val port = driver.ports.first()
-                port.open(connection)
-                port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
-                listenToProximitySignals(port)
-                isConnected = true
-
-                // ✅ Notify app that ESP is now connected
-                sendBroadcast(Intent("ACTION_USB_CONNECTED"))
-            } else {
-                isConnected = false
-                broadcastSnackbar("Failed to open USB device.")
+                try {
+                    port.open(connection)
+                    port.setParameters(
+                        115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE
+                    )
+                    listenToProximitySignals(port)
+                    isConnected = true
+                    sendBroadcast(Intent("ACTION_USB_CONNECTED"))
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to open USB device: ${e.message}", e)
+                    isConnected = false
+                    broadcastSnackbar("Failed to open USB device.")
+                }
             }
         } else {
             isConnected = false
@@ -104,10 +112,7 @@ class UsbProximityService : Service() {
     private fun requestUsbPermission(device: UsbDevice) {
         val usbManager = getSystemService(USB_SERVICE) as UsbManager
         val permissionIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent("com.shayan.playbackmaster.USB_PERMISSION"),
-            PendingIntent.FLAG_IMMUTABLE
+            this, 0, Intent(USB_PERMISSION_ACTION), PendingIntent.FLAG_IMMUTABLE
         )
         usbManager.requestPermission(device, permissionIntent)
     }
@@ -124,6 +129,7 @@ class UsbProximityService : Service() {
                     }
                 }
             } catch (e: Exception) {
+                Log.e(TAG, "Error in USB communication: ${e.message}", e)
                 isConnected = false
                 broadcastSnackbar("Error in USB communication.")
             } finally {
@@ -134,13 +140,15 @@ class UsbProximityService : Service() {
     }
 
     private fun handleSignal(signal: String) {
-        val cleanedSignal = signal.trim().replace(Regex("[^01]"), "") // Ensure only '0' or '1'
+        val cleanedSignal = signal.trim().replace(Regex("[^01]"), "")
 
         val snackbarIntent = Intent("ACTION_SHOW_SNACKBAR")
         val preferencesHelper = PreferencesHelper(this)
+
         if (!isWithinScheduledTime(preferencesHelper) || !isConnected) {
             return
         }
+
         when (cleanedSignal) {
             "1" -> {
                 sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
@@ -156,7 +164,7 @@ class UsbProximityService : Service() {
                 snackbarIntent.putExtra("MESSAGE", "ESP Error: Invalid Signal - '$cleanedSignal'")
             }
         }
-        sendBroadcast(snackbarIntent) // Show the snackbar on the UI
+        sendBroadcast(snackbarIntent)
     }
 
     private fun isWithinScheduledTime(preferencesHelper: PreferencesHelper): Boolean {
@@ -174,32 +182,32 @@ class UsbProximityService : Service() {
     }
 
     private fun convertTimeToMillis(time: String): Long {
-        val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val calendar = Calendar.getInstance()
-        val (hour, minute) = time.split(":").map { it.toInt() }
-        calendar.set(Calendar.HOUR_OF_DAY, hour)
-        calendar.set(Calendar.MINUTE, minute)
-        calendar.set(Calendar.SECOND, 0)
-        return calendar.timeInMillis
+        return try {
+            val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val (hour, minute) = time.split(":").map { it.toInt() }
+            Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+            }.timeInMillis
+        } catch (e: Exception) {
+            Log.e(TAG, "Invalid time format: $time", e)
+            0L
+        }
     }
 
     private fun broadcastSnackbar(message: String) {
-        val intent = Intent("ACTION_SHOW_SNACKBAR").apply {
-            putExtra("MESSAGE", message)
-        }
-        sendBroadcast(intent)
+        sendBroadcast(Intent("ACTION_SHOW_SNACKBAR").apply { putExtra("MESSAGE", message) })
     }
 
     private fun sendErrorBroadcast(error: String) {
-        val intent = Intent("ACTION_USB_ERROR").apply {
-            putExtra("ERROR_MESSAGE", error)
-        }
-        sendBroadcast(intent)
+        sendBroadcast(Intent("ACTION_USB_ERROR").apply { putExtra("ERROR_MESSAGE", error) })
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(usbReceiver)
+        Log.d(TAG, "Service Destroyed. USB Receiver Unregistered.")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

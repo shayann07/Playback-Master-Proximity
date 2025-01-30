@@ -3,10 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="ProtectedPermissions">
 
+    <!-- Hardware Features -->
     <uses-feature android:name="android.hardware.usb.host" />
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
 
     <!-- Permissions -->
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -17,10 +18,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-
-    <uses-feature android:name="android.hardware.usb.host" />
-
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.DEVICE_POWER" />
@@ -37,15 +34,13 @@
         android:theme="@style/Theme.PlaybackMaster"
         tools:targetApi="31">
 
+        <!-- USB Proximity Service -->
         <service
             android:name=".services.UsbProximityService"
             android:enabled="true"
-            android:exported="true"
-            android:permission="com.shayan.playbackmaster.USB_PERMISSION">
+            android:exported="false" />
 
-        </service>
-
-
+        <!-- Main Activity -->
         <activity
             android:name=".ui.MainActivity"
             android:configChanges="orientation|screenSize"
@@ -53,36 +48,37 @@
             android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Playback Service (Runs in Foreground) -->
         <service
             android:name=".services.PlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback"
             android:permission="android.permission.FOREGROUND_SERVICE" />
 
+        <!-- Boot Receiver (Ensures Playback Resumes after Reboot) -->
         <receiver
             android:name=".receivers.BootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
+        <!-- Proximity Receiver (Handles ESP Proximity Events) -->
         <receiver
             android:name=".receivers.ProximityReceiver"
-            android:exported="true"
-            android:permission="com.shayan.playbackmaster.PERMISSION_PROXIMITY">
+            android:enabled="true"
+            android:exported="false">
             <intent-filter>
                 <action android:name="ACTION_PROXIMITY_DETECTED" />
                 <action android:name="ACTION_PROXIMITY_LOST" />
             </intent-filter>
         </receiver>
-
 
     </application>
 
