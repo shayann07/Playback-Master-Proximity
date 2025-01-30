@@ -1,16 +1,11 @@
 package com.shayan.playbackmaster.ui
 
 import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
-
-import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.ActivityCompat
@@ -19,12 +14,10 @@ import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.fragment.findNavController
 import com.shayan.playbackmaster.R
-import android.os.PowerManager
 import com.shayan.playbackmaster.services.UsbProximityService
 import com.shayan.playbackmaster.ui.fragments.ExitPlaybackListener
-import com.shayan.playbackmaster.utils.BatteryOptimizationHelper
 
-class MainActivity<PowerManager> : AppCompatActivity(), ExitPlaybackListener {
+class MainActivity : AppCompatActivity(), ExitPlaybackListener {
 
     private lateinit var navHostFragment: NavHostFragment
     private lateinit var navController: NavController
@@ -47,43 +40,6 @@ class MainActivity<PowerManager> : AppCompatActivity(), ExitPlaybackListener {
 
         AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
 
-       /* if (BatteryOptimizationHelper.isBatteryOptimized(context = this)){
-            BatteryOptimizationHelper.requestDisableBatteryOptimization(context = this)
-        }*/
-        // Check if battery optimization is ignored
-
-           // If the device is Android M (API 23) or higher, navigate to battery optimization settings
-           if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !BatteryOptimizationHelper.isBatteryOptimized(this)) {
-               val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-               try {
-                   val builder = AlertDialog.Builder(this)
-                   builder.setTitle("Battery Optimization")
-                       .setMessage("To ensure the best performance, please disable battery optimization for this app.Go to setting " +
-                               "and find PlaybackMaster and turn off battery optimization")
-                       .setPositiveButton("Go to Settings") { dialog, _ ->
-                           // Open battery optimization settings
-                           startActivity(intent)
-                           dialog.dismiss() // Close the dialog
-                       }
-                       .setNegativeButton("Cancel") { dialog, _ ->
-                           dialog.dismiss() // Close the dialog
-                       }
-                       .setCancelable(false) // Prevent closing the dialog by tapping outside
-
-                   // Create and show the dialog
-                   val dialog = builder.create()
-                   dialog.show()
-
-                   Toast.makeText(this,"Turn off Battery Optimization",Toast.LENGTH_LONG).show()
-                  // Successfully opened the settings
-               } catch (e: Exception) {
-                   e.printStackTrace()
-                     // Failed to open settings
-               }
-           }
-
-
-
         // Check for permissions and handle playback intent
         if (hasStoragePermission()) {
             handlePlaybackIntent()
@@ -93,7 +49,6 @@ class MainActivity<PowerManager> : AppCompatActivity(), ExitPlaybackListener {
 
         startUsbService()
     }
-
 
 
     private fun hasStoragePermission(): Boolean {
@@ -107,8 +62,6 @@ class MainActivity<PowerManager> : AppCompatActivity(), ExitPlaybackListener {
             ) == PackageManager.PERMISSION_GRANTED
         }
     }
-
-
 
 
     private fun requestStoragePermission() {

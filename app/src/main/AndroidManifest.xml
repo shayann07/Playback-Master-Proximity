@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
@@ -70,6 +72,18 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
+
+        <receiver
+            android:name=".receivers.ProximityReceiver"
+            android:exported="true"
+            android:permission="com.shayan.playbackmaster.PERMISSION_PROXIMITY">
+            <intent-filter>
+                <action android:name="ACTION_PROXIMITY_DETECTED" />
+                <action android:name="ACTION_PROXIMITY_LOST" />
+            </intent-filter>
+        </receiver>
+
+
     </application>
 
 </manifest>

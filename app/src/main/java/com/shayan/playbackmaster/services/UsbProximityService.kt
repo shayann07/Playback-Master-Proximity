@@ -10,6 +10,7 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
@@ -22,6 +23,7 @@ class UsbProximityService : Service() {
     companion object {
         // Flag to indicate if the ESP is connected
         var isConnected: Boolean = false
+
     }
 
     private val usbReceiver = object : BroadcastReceiver() {
@@ -45,6 +47,8 @@ class UsbProximityService : Service() {
         super.onCreate()
         val filter = IntentFilter("com.shayan.playbackmaster.USB_PERMISSION")
         registerReceiver(usbReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        Log.d("UsbProximityService", "USB Connected: isConnected = $isConnected")
+
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -130,14 +134,29 @@ class UsbProximityService : Service() {
     }
 
     private fun handleSignal(signal: String) {
+        val cleanedSignal = signal.trim().replace(Regex("[^01]"), "") // Ensure only '0' or '1'
+
+        val snackbarIntent = Intent("ACTION_SHOW_SNACKBAR")
         val preferencesHelper = PreferencesHelper(this)
         if (!isWithinScheduledTime(preferencesHelper) || !isConnected) {
             return
         }
-        when (signal) {
-            "1" -> sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
-            "0" -> sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
+        when (cleanedSignal) {
+            "1" -> {
+                sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
+                snackbarIntent.putExtra("MESSAGE", "ESP Signal Received: 1 (Proximity Detected)")
+            }
+
+            "0" -> {
+                sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
+                snackbarIntent.putExtra("MESSAGE", "ESP Signal Received: 0 (Proximity Lost)")
+            }
+
+            else -> {
+                snackbarIntent.putExtra("MESSAGE", "ESP Error: Invalid Signal - '$cleanedSignal'")
+            }
         }
+        sendBroadcast(snackbarIntent) // Show the snackbar on the UI
     }
 
     private fun isWithinScheduledTime(preferencesHelper: PreferencesHelper): Boolean {

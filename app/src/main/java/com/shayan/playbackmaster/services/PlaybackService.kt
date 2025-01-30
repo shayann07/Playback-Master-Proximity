@@ -4,17 +4,20 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
 import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.data.preferences.PreferencesHelper
+import com.shayan.playbackmaster.receivers.ProximityReceiver
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -24,9 +27,22 @@ class PlaybackService : Service() {
     private var exoPlayer: ExoPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var isProximityDetected = false
+    private var proximityReceiver: ProximityReceiver? = null
 
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onCreate() {
         super.onCreate()
+        Log.d("PlaybackService", "Service Created. Registering ProximityReceiver...")
+
+        if (proximityReceiver == null) {
+            val proximityReceiver = ProximityReceiver()
+            val intentFilter = IntentFilter().apply {
+                addAction("ACTION_PROXIMITY_DETECTED")
+                addAction("ACTION_PROXIMITY_LOST")
+
+            }
+            registerReceiver(proximityReceiver, intentFilter, RECEIVER_NOT_EXPORTED)
+        }
         createNotificationChannel()
         val notification =
             NotificationCompat.Builder(this, "playback_channel").setContentTitle("Playback Master")
@@ -63,23 +79,43 @@ class PlaybackService : Service() {
             }
         }
 
+        Log.d("PlaybackService", "Received intent action: ${intent?.action}")
+        Log.d("PlaybackService", "USB Connected: ${UsbProximityService.isConnected}")
+        Log.d("PlaybackService", "Proximity Detected: $isProximityDetected")
+        Log.d(
+            "PlaybackService", "Within Scheduled Time: ${isWithinScheduledTime(preferencesHelper)}"
+        )
+
+
         return START_STICKY
     }
 
     private fun handleProximitySignal(signal: Any) {
-        val signalString = signal.toString()
-        Log.d("PlaybackService", "Received proximity signal: $signalString")
+        val signalString = signal.toString().trim()
+        val snackbarIntent = Intent("ACTION_SHOW_SNACKBAR")
 
-        if (signalString == "1") {
-            handler.postDelayed({
-                if (isProximityDetected) {
-                    val preferencesHelper = PreferencesHelper(this)
-                    checkAndStartPlayback(preferencesHelper)
-                }
-            }, 3000) // 3-second delay to confirm presence
-        } else if (signalString == "0") {
-            stopPlayback()
+        when (signalString) {
+            "1" -> {
+                handler.postDelayed({
+                    if (isProximityDetected) {
+                        val preferencesHelper = PreferencesHelper(this)
+                        checkAndStartPlayback(preferencesHelper)
+                    }
+                }, 2000) // 3-second delay to confirm presence
+                snackbarIntent.putExtra("MESSAGE", "Playback Starting (Signal: 1)")
+            }
+
+            "0" -> {
+                stopPlayback()
+                snackbarIntent.putExtra("MESSAGE", "Playback Stopping (Signal: 0)")
+            }
+
+            else -> {
+                snackbarIntent.putExtra("MESSAGE", "Unexpected Signal: '$signalString'")
+            }
         }
+
+        sendBroadcast(snackbarIntent) // Show the snackbar on the UI
     }
 
     private fun checkAndStartPlayback(preferencesHelper: PreferencesHelper) {
@@ -93,11 +129,15 @@ class PlaybackService : Service() {
     }
 
     private fun isWithinScheduledTime(preferencesHelper: PreferencesHelper): Boolean {
-        val startTime = preferencesHelper.getStartTime() ?: return false
-        val endTime = preferencesHelper.getEndTime() ?: return false
+        val startTime = preferencesHelper.getStartTime()
+        val endTime = preferencesHelper.getEndTime()
         val currentTime = System.currentTimeMillis()
-        val startMillis = convertTimeToMillis(startTime)
-        val endMillis = convertTimeToMillis(endTime)
+        val startMillis = convertTimeToMillis(startTime ?: "")
+        val endMillis = convertTimeToMillis(endTime ?: "")
+
+        Log.d("PlaybackService", "Start Time: $startTime -> $startMillis")
+        Log.d("PlaybackService", "End Time: $endTime -> $endMillis")
+        Log.d("PlaybackService", "Current Time: $currentTime")
 
         return currentTime in startMillis..endMillis
     }
@@ -155,6 +195,14 @@ class PlaybackService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+
+        Log.d("PlaybackService", "Service Destroyed. Unregistering ProximityReceiver...")
+
+        proximityReceiver?.let {
+            unregisterReceiver(it)
+            proximityReceiver = null
+        }
+
         handler.removeCallbacksAndMessages(null)
         exoPlayer?.release()
         exoPlayer = null
