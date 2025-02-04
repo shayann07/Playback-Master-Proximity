@@ -38,9 +38,12 @@ class VideoFragment : Fragment() {
     private var screenTurnedOnByApp = false
 
     override fun onCreateView(
+
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentVideoBinding.inflate(inflater, container, false)
+
+        Log.d("VideoFragment", "onCreateView - VideoFragment layout is created.")
 
         // Set the orientation to landscape
         requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
@@ -56,16 +59,13 @@ class VideoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        requireActivity().window.setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_SECURE,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_SECURE
-        )
+        setupFullScreen()
 
         val videoUri = arguments?.getString("VIDEO_URI") ?: viewModel.videoUri.value
         val startTime = arguments?.getString("START_TIME") ?: viewModel.startTime.value
         val endTime = arguments?.getString("END_TIME") ?: viewModel.endTime.value
 
-        Log.d("VideoFragment", "Video URI: $videoUri, Start Time: $startTime, End Time: $endTime")
+        Log.d("VideoFragment", "onViewCreated - Configuring video with URI: $videoUri")
 
         if (videoUri != null && isWithinPlaybackPeriod(startTime, endTime)) {
             acquireWakeLock()
@@ -73,29 +73,42 @@ class VideoFragment : Fragment() {
         } else {
             binding.txtError.text = "Current time is outside the configured playback period."
             binding.txtError.visibility = View.VISIBLE
+            Log.d("VideoFragment", "Playback outside scheduled time - showing error.")
         }
 
         binding.videoView.useController = false
         binding.fabAction1.setOnClickListener {
-            try {
-                // Revert to portrait before navigating
-                requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-
-                // Use NavController to navigate
-                findNavController().navigate(R.id.action_videoFragment_to_homeFragment)
-            } catch (e: Exception) {
-                Log.e("VideoFragment", "Navigation failed: ${e.message}")
-            }
+            navigateBack()
         }
         binding.fabAction2.setOnClickListener {
             requireActivity().finishAffinity()
         }
     }
 
+    private fun setupFullScreen() {
+        requireActivity().window.setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_SECURE
+        )
+        Log.d("VideoFragment", "Full-screen mode set.")
+    }
+
+    private fun navigateBack() {
+        try {
+            requireActivity().requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            findNavController().navigate(R.id.action_videoFragment_to_homeFragment)
+            Log.d("VideoFragment", "Navigating back to home fragment.")
+        } catch (e: Exception) {
+            Log.e("VideoFragment", "Navigation failed: ${e.message}", e)
+        }
+    }
+
     private fun isWithinPlaybackPeriod(startTime: String?, endTime: String?): Boolean {
         if (startTime == null || endTime == null) return false
         val currentTime = getCurrentTime()
-        return currentTime in startTime..endTime
+        val withinPeriod = currentTime in startTime..endTime
+        Log.d("VideoFragment", "Current time $currentTime within playback period: $withinPeriod")
+        return withinPeriod
     }
 
     private fun getCurrentTime(): String {
@@ -115,6 +128,7 @@ class VideoFragment : Fragment() {
             handler.postDelayed({
                 stopPlayback()
             }, delay)
+            Log.d("VideoFragment", "Scheduled stop playback in $delay ms.")
         } else {
             stopPlayback()
         }
@@ -130,21 +144,25 @@ class VideoFragment : Fragment() {
                 Toast.makeText(it, "Playback stopped at end time", Toast.LENGTH_SHORT).show()
             }
             findNavController().navigate(R.id.homeFragment)
-
-
+            Log.d("VideoFragment", "Playback stopped and navigating back.")
         } else {
             Log.e("VideoFragment", "Fragment is not attached to context. Unable to navigate.")
         }
     }
 
     private fun convertTimeToMillis(time: String): Long {
-        val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val calendar = Calendar.getInstance()
-        val (hour, minute) = time.split(":").map { it.toInt() }
-        calendar.set(Calendar.HOUR_OF_DAY, hour)
-        calendar.set(Calendar.MINUTE, minute)
-        calendar.set(Calendar.SECOND, 0)
-        return calendar.timeInMillis
+        return try {
+            val formatter = SimpleDateFormat("HH:mm", Locale.getDefault())
+            val (hour, minute) = time.split(":").map { it.toInt() }
+            Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hour)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+            }.timeInMillis
+        } catch (e: Exception) {
+            Log.e("VideoFragment", "Error converting time: ${e.message}", e)
+            0L
+        }
     }
 
     private fun setupPlayer(uri: Uri) {
@@ -171,7 +189,7 @@ class VideoFragment : Fragment() {
         )
         wakeLock?.acquire(10 * 60 * 1000L)
         screenTurnedOnByApp = true
-        Log.d("VideoFragment", "Wake lock acquired to turn on the screen.")
+        Log.d("VideoFragment", "Wake lock acquired to keep screen on during playback.")
     }
 
     private fun releaseWakeLock() {
@@ -190,6 +208,7 @@ class VideoFragment : Fragment() {
         super.onResume()
         requireActivity().window.decorView.systemUiVisibility =
             (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION or View.SYSTEM_UI_FLAG_FULLSCREEN)
+        Log.d("VideoFragment", "onResume - UI flags set for immersive sticky fullscreen.")
     }
 
     override fun onPause() {
@@ -197,6 +216,7 @@ class VideoFragment : Fragment() {
         requireActivity().window.clearFlags(
             WindowManager.LayoutParams.FLAG_FULLSCREEN or WindowManager.LayoutParams.FLAG_SECURE
         )
+        Log.d("VideoFragment", "onPause - Fullscreen flags cleared.")
     }
 
     override fun onDestroyView() {
@@ -209,5 +229,6 @@ class VideoFragment : Fragment() {
         exoPlayer?.release()
         exoPlayer = null
         _binding = null
+        Log.d("VideoFragment", "View destroyed and resources released.")
     }
 }

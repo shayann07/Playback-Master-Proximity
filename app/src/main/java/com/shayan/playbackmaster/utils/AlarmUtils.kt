@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.annotation.RequiresApi
 import com.shayan.playbackmaster.services.PlaybackService
 import java.util.Calendar
@@ -14,6 +15,10 @@ object AlarmUtils {
 
     @RequiresApi(Build.VERSION_CODES.M)
     fun scheduleDailyAlarm(context: Context, videoUri: String, startTime: String, endTime: String) {
+        Log.d(
+            "AlarmUtils",
+            "Scheduling daily alarm with URI: $videoUri, start: $startTime, end: $endTime"
+        )
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val alarmManager = context.getSystemService(AlarmManager::class.java)
             if (alarmManager?.canScheduleExactAlarms() == false) {
@@ -24,7 +29,7 @@ object AlarmUtils {
                     context.startActivity(intent)
                     return
                 } catch (e: Exception) {
-                    e.printStackTrace()
+                    Log.e("AlarmUtils", "Failed to schedule alarm", e)
                     return
                 }
             }
@@ -52,5 +57,6 @@ object AlarmUtils {
         alarmManager.setExactAndAllowWhileIdle(
             AlarmManager.RTC_WAKEUP, calendar.timeInMillis, pendingIntent
         )
+        Log.d("AlarmUtils", "Alarm set successfully for time: ${calendar.time}")
     }
 }

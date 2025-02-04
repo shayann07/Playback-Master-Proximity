@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        Log.d(TAG, "MainActivity created.")
 
         // Initialize navigation
         navHostFragment =
@@ -46,6 +47,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
      * Checks if required permissions are granted. If not, requests them.
      */
     private fun checkAndRequestPermissions() {
+        Log.d(TAG, "Checking and requesting permissions.")
         if (hasStoragePermission()) {
             handlePlaybackIntent()
             startUsbService()
@@ -80,6 +82,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
                 Manifest.permission.READ_EXTERNAL_STORAGE
             }
 
+        Log.d(TAG, "Requesting storage permission.")
         ActivityCompat.requestPermissions(this, arrayOf(permission), REQUEST_CODE_READ_STORAGE)
     }
 
@@ -91,10 +94,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
         val startTime = intent.getStringExtra("START_TIME")
         val endTime = intent.getStringExtra("END_TIME")
 
-        Log.d(
-            TAG,
-            "Playback Intent Data - VIDEO_URI: $videoUri, START_TIME: $startTime, END_TIME: $endTime"
-        )
+        Log.d(TAG, "Handling playback intent: URI=$videoUri, Start=$startTime, End=$endTime")
 
         if (!videoUri.isNullOrEmpty() && !startTime.isNullOrEmpty() && !endTime.isNullOrEmpty()) {
             navigateToVideoFragment(videoUri, startTime, endTime)
@@ -111,6 +111,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
             putString("END_TIME", endTime)
         }
 
+        Log.d(TAG, "Navigating to VideoFragment with bundle: $bundle")
         navController.setGraph(R.navigation.nav_graph, bundle)
         navController.navigate(R.id.videoFragment, bundle)
     }
@@ -155,6 +156,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
      * Handles exit from playback mode, returning to the home fragment.
      */
     override fun onExitPlayback() {
+        Log.d(TAG, "Exiting playback, navigating to home fragment.")
         navController.navigate(R.id.homeFragment)
     }
 }

@@ -6,6 +6,7 @@
     <!-- Hardware Features -->
     <uses-feature android:name="android.hardware.usb.host" />
 
+
     <!-- Permissions -->
     <uses-permission android:name="android.permission.USB_PERMISSION" />
     <uses-permission
@@ -73,10 +74,11 @@
         <receiver
             android:name=".receivers.ProximityReceiver"
             android:enabled="true"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="ACTION_PROXIMITY_DETECTED" />
                 <action android:name="ACTION_PROXIMITY_LOST" />
+                <action android:name="com.shayan.playbackmaster.USB_PERMISSION" />
             </intent-filter>
         </receiver>
 

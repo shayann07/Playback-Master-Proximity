@@ -15,6 +15,7 @@ import androidx.annotation.RequiresApi
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import com.shayan.playbackmaster.data.preferences.PreferencesHelper
+import com.shayan.playbackmaster.receivers.ProximityReceiver
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -30,15 +31,20 @@ class UsbProximityService : Service() {
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d(TAG, "Received broadcast: ${intent?.action}")
             if (intent?.action == USB_PERMISSION_ACTION) {
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                 val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                Log.d(TAG, "USB permission result: $granted for device: $device")
 
                 if (granted && device != null) {
                     val usbManager = getSystemService(USB_SERVICE) as UsbManager
                     setupUsbConnection(device, usbManager)
                 } else {
                     isConnected = false
+                    Log.d(
+                        TAG, "USB permission denied or no device. isConnected set to $isConnected"
+                    )
                     broadcastSnackbar("USB permission denied.")
                 }
             }
@@ -53,10 +59,12 @@ class UsbProximityService : Service() {
         registerReceiver(
             usbReceiver, IntentFilter(USB_PERMISSION_ACTION), Context.RECEIVER_NOT_EXPORTED
         )
+        Log.d(TAG, "USB receiver registered.")
         checkEspConnection()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand called. Intent action: ${intent?.action}")
         checkEspConnection()
         return START_STICKY
     }
@@ -64,9 +72,11 @@ class UsbProximityService : Service() {
     private fun checkEspConnection() {
         val usbManager = getSystemService(USB_SERVICE) as UsbManager
         val deviceList = usbManager.deviceList
+        Log.d(TAG, "Checking ESP connection. Device list size: ${deviceList.size}")
 
         if (deviceList.isEmpty()) {
             isConnected = false
+            Log.d(TAG, "No devices connected. isConnected set to $isConnected")
             broadcastSnackbar("ESP disconnected.")
             sendErrorBroadcast("ESP connection lost.")
             sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
@@ -74,9 +84,11 @@ class UsbProximityService : Service() {
             val usbDevice = deviceList.values.firstOrNull()
             if (usbDevice != null) {
                 isConnected = true
+                Log.d(TAG, "ESP device found: $usbDevice, isConnected set to $isConnected")
                 requestUsbPermission(usbDevice)
             } else {
                 isConnected = false
+                Log.d(TAG, "No valid ESP device found. isConnected set to $isConnected")
                 broadcastSnackbar("ESP is not connected to the mobile device.")
                 sendErrorBroadcast("ESP connection error: No valid USB devices found.")
             }
@@ -84,6 +96,7 @@ class UsbProximityService : Service() {
     }
 
     private fun setupUsbConnection(device: UsbDevice, usbManager: UsbManager) {
+        Log.d(TAG, "Attempting to set up USB connection for device: $device")
         val driver = UsbSerialProber.getDefaultProber().probeDevice(device)
         if (driver != null) {
             val connection = usbManager.openDevice(driver.device)
@@ -96,28 +109,46 @@ class UsbProximityService : Service() {
                     )
                     listenToProximitySignals(port)
                     isConnected = true
+                    Log.d(TAG, "USB connection established. isConnected set to $isConnected")
                     sendBroadcast(Intent("ACTION_USB_CONNECTED"))
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to open USB device: ${e.message}", e)
                     isConnected = false
                     broadcastSnackbar("Failed to open USB device.")
                 }
+            } else {
+                Log.d(TAG, "Failed to open connection for USB device.")
             }
         } else {
             isConnected = false
+            Log.d(TAG, "No suitable USB driver found for the device.")
             broadcastSnackbar("No suitable USB driver found.")
         }
     }
 
     private fun requestUsbPermission(device: UsbDevice) {
         val usbManager = getSystemService(USB_SERVICE) as UsbManager
-        val permissionIntent = PendingIntent.getBroadcast(
-            this, 0, Intent(USB_PERMISSION_ACTION), PendingIntent.FLAG_IMMUTABLE
+
+        // Create an explicit Intent targeting ProximityReceiver
+        val usbPermissionIntent = Intent(this, ProximityReceiver::class.java).apply {
+            action = ProximityReceiver.USB_PERMISSION_ACTION
+        }
+
+        // Create a mutable PendingIntent with the explicit Intent
+        val permissionPendingIntent = PendingIntent.getBroadcast(
+            this,
+            0,
+            usbPermissionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
-        usbManager.requestPermission(device, permissionIntent)
+
+        // Request USB permission using the explicit PendingIntent
+        usbManager.requestPermission(device, permissionPendingIntent)
+        Log.d(TAG, "Requesting USB permission for device: $device")
     }
 
     private fun listenToProximitySignals(port: UsbSerialPort) {
+        Log.d(TAG, "Starting to listen for proximity signals.")
         Thread {
             try {
                 val buffer = ByteArray(100)
@@ -135,17 +166,21 @@ class UsbProximityService : Service() {
             } finally {
                 isConnected = false
                 port.close()
+                Log.d(TAG, "Stopped listening for proximity signals. Port closed.")
             }
         }.start()
     }
 
     private fun handleSignal(signal: String) {
+        Log.d(TAG, "Received signal: $signal")
         val cleanedSignal = signal.trim().replace(Regex("[^01]"), "")
+        Log.d(TAG, "Cleaned signal for processing: $cleanedSignal")
 
         val snackbarIntent = Intent("ACTION_SHOW_SNACKBAR")
         val preferencesHelper = PreferencesHelper(this)
 
         if (!isWithinScheduledTime(preferencesHelper) || !isConnected) {
+            Log.d(TAG, "Signal received outside of scheduled time or when disconnected.")
             return
         }
 
@@ -153,15 +188,18 @@ class UsbProximityService : Service() {
             "1" -> {
                 sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
                 snackbarIntent.putExtra("MESSAGE", "ESP Signal Received: 1 (Proximity Detected)")
+                Log.d(TAG, "Proximity detected signal processed.")
             }
 
             "0" -> {
                 sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
                 snackbarIntent.putExtra("MESSAGE", "ESP Signal Received: 0 (Proximity Lost)")
+                Log.d(TAG, "Proximity lost signal processed.")
             }
 
             else -> {
                 snackbarIntent.putExtra("MESSAGE", "ESP Error: Invalid Signal - '$cleanedSignal'")
+                Log.d(TAG, "Received invalid signal: $cleanedSignal")
             }
         }
         sendBroadcast(snackbarIntent)
@@ -197,17 +235,19 @@ class UsbProximityService : Service() {
     }
 
     private fun broadcastSnackbar(message: String) {
+        Log.d(TAG, "Broadcasting snackbar message: $message")
         sendBroadcast(Intent("ACTION_SHOW_SNACKBAR").apply { putExtra("MESSAGE", message) })
     }
 
     private fun sendErrorBroadcast(error: String) {
+        Log.d(TAG, "Broadcasting error message: $error")
         sendBroadcast(Intent("ACTION_USB_ERROR").apply { putExtra("ERROR_MESSAGE", error) })
     }
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(usbReceiver)
-        Log.d(TAG, "Service Destroyed. USB Receiver Unregistered.")
+        Log.d(TAG, "USB Receiver unregistered.")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null

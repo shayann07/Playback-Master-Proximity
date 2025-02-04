@@ -53,6 +53,7 @@ class HomeFragment : Fragment() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "ACTION_SHOW_SNACKBAR") {
                 val message = intent.getStringExtra("MESSAGE")
+                Log.d("HomeFragment", "Snackbar message received: $message")
                 message?.let {
                     Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
                 }
@@ -64,6 +65,7 @@ class HomeFragment : Fragment() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val errorMessage = intent?.getStringExtra("ERROR_MESSAGE")
             if (!errorMessage.isNullOrEmpty()) {
+                Log.e("HomeFragment", "ESP error message received: $errorMessage")
                 showEspErrorDialog(errorMessage)
             }
         }
@@ -71,6 +73,7 @@ class HomeFragment : Fragment() {
 
     private val espConnectedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
+            Log.d("HomeFragment", "ESP connection status changed.")
             when (intent?.action) {
                 "ACTION_USB_CONNECTED" -> {
                     Log.d("Connection", "USB Connected broadcast received")
@@ -79,6 +82,7 @@ class HomeFragment : Fragment() {
                 }
 
                 "ACTION_USB_DISCONNECTED" -> {
+                    Log.d("HomeFragment", "USB Disconnected broadcast received")
                     wasEspConnected = false
                     forceConnectionCheck()
                 }
@@ -96,6 +100,8 @@ class HomeFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
+        Log.d("HomeFragment", "View created")
+
         return binding.root
     }
 
@@ -103,6 +109,7 @@ class HomeFragment : Fragment() {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        Log.d("HomeFragment", "View created")
 
         val connectedFilter = IntentFilter().apply {
             addAction("ACTION_USB_CONNECTED")
@@ -137,6 +144,7 @@ class HomeFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
+        Log.d("HomeFragment", "Fragment resumed")
         startPeriodicConnectionCheck()
         val filter = IntentFilter("ACTION_SHOW_SNACKBAR")
         ContextCompat.registerReceiver(
@@ -146,12 +154,14 @@ class HomeFragment : Fragment() {
 
     override fun onPause() {
         super.onPause()
+        Log.d("HomeFragment", "Fragment paused")
         requireContext().unregisterReceiver(snackbarReceiver)
         stopPeriodicConnectionCheck()
         dismissPersistentDialog()
     }
 
     private fun startPeriodicConnectionCheck() {
+        Log.d("HomeFragment", "Starting periodic ESP connection check")
         checkEspRunnable = object : Runnable {
             override fun run() {
                 checkEspAndTimeConditions()
@@ -162,6 +172,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun stopPeriodicConnectionCheck() {
+        Log.d("HomeFragment", "Stopping periodic ESP connection check")
         checkEspRunnable?.let {
             handler.removeCallbacks(it)
             checkEspRunnable = null
@@ -169,25 +180,29 @@ class HomeFragment : Fragment() {
     }
 
     private fun checkEspAndTimeConditions() {
+        Log.d("HomeFragment", "Checking ESP and time conditions")
         val currentTime = System.currentTimeMillis()
         val startTime = viewModel.startTime.value?.let { convertTimeToMillis(it) } ?: 0
         val endTime = viewModel.endTime.value?.let { convertTimeToMillis(it) } ?: 0
 
 
         if (startTime == 0L || endTime == 0L) {
-            Log.w(
-                "HomeFragment",
-                "checkEspAndTimeConditions: Start time or End time not set. Skipping check."
-            )
             dismissPersistentDialog() // ✅ Hide dialog if time is missing
             return
         }
 
         val shouldCheck = currentTime in startTime..endTime
+        Log.d("HomeFragment", "Should check conditions: $shouldCheck")
+        val currentEspStatus = UsbProximityService.isConnected
+
+        Log.d(
+            "HomeFragment",
+            "Conditions checked: ESP connected: $currentEspStatus, Time valid: $shouldCheck"
+        )
 
         when {
             !shouldCheck -> dismissPersistentDialog()
-            !wasEspConnected -> showPersistentDialog()
+            !currentEspStatus -> showPersistentDialog()
             else -> dismissPersistentDialog()
         }
     }
@@ -415,6 +430,7 @@ class HomeFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        Log.d("HomeFragment", "Destroying view and unregistering ESP receivers")
         if (isEspReceiverRegistered) {
             requireContext().unregisterReceiver(espConnectedReceiver)
             isEspReceiverRegistered = false // ✅ Reset flag
