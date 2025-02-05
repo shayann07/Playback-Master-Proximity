@@ -79,6 +79,7 @@ class PlaybackService : Service() {
                         sendBroadcast(Intent("ACTION_STOP_VIDEO"))
                         stopSelf()
                     }
+
                 }
             }
         }
