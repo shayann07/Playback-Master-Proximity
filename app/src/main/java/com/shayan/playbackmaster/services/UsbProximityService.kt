@@ -85,7 +85,7 @@ class UsbProximityService : Service() {
             if (usbDevice != null) {
                 isConnected = true
                 Log.d(TAG, "ESP device found: $usbDevice, isConnected set to $isConnected")
-                requestUsbPermission(usbDevice)
+
             } else {
                 isConnected = false
                 Log.d(TAG, "No valid ESP device found. isConnected set to $isConnected")
@@ -126,26 +126,7 @@ class UsbProximityService : Service() {
         }
     }
 
-    private fun requestUsbPermission(device: UsbDevice) {
-        val usbManager = getSystemService(USB_SERVICE) as UsbManager
 
-        // Create an explicit Intent targeting ProximityReceiver
-        val usbPermissionIntent = Intent(this, ProximityReceiver::class.java).apply {
-            action = ProximityReceiver.USB_PERMISSION_ACTION
-        }
-
-        // Create a mutable PendingIntent with the explicit Intent
-        val permissionPendingIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            usbPermissionIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-        )
-
-        // Request USB permission using the explicit PendingIntent
-        usbManager.requestPermission(device, permissionPendingIntent)
-        Log.d(TAG, "Requesting USB permission for device: $device")
-    }
 
     private fun listenToProximitySignals(port: UsbSerialPort) {
         Log.d(TAG, "Starting to listen for proximity signals.")
