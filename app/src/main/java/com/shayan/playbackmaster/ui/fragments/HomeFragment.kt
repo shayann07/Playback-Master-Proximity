@@ -66,7 +66,6 @@ class HomeFragment : Fragment() {
     }
 
 
-
     private val espConnectedReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -98,7 +97,6 @@ class HomeFragment : Fragment() {
     }
 
 
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -112,16 +110,7 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         Log.d("HomeFragment", "View created")
 
-        // Register USB device receiver dynamically
-        val usbFilter = IntentFilter().apply {
-            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
-        }
-        requireContext().registerReceiver(espConnectedReceiver, usbFilter)
-
-        isEspReceiverRegistered = true
-
-
+        // Initialize UI components and ViewModel
         viewModel.loadVideoDetails()
         observeViewModel()
         setupTimeSelection()
@@ -130,9 +119,30 @@ class HomeFragment : Fragment() {
         setupBatteryOptimisation()
         initializeScreenLockSwitch()
 
-        // On view creation, check if the dialog should be shown.
+        // Register USB device receiver dynamically
+        val usbFilter = IntentFilter().apply {
+            addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
+        }
+        requireContext().registerReceiver(espConnectedReceiver, usbFilter)
+        isEspReceiverRegistered = true
+
+        // Check for connected USB devices on launch
+        val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
+        val deviceList = usbManager.deviceList
+        UsbProximityService.isConnected = deviceList.isNotEmpty()
+        Log.d("HomeFragment", "Initial USB connection state: ${UsbProximityService.isConnected}")
+
+        /*.any { device ->
+            // Add device filtering logic here (e.g., vendor/product ID checks)
+            // For now, assume any connected device is the ESP32
+            true
+        }*/
+
+        // Update dialog state based on ESP connection and time window
         updateEspDialogBasedOnConditions()
     }
+
     private fun requestUsbPermission(device: UsbDevice) {
         val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
 
@@ -152,33 +162,56 @@ class HomeFragment : Fragment() {
         Log.d("HomeFragment", "Requesting USB permission for device: ${device.deviceName}")
     }
 
-
-
+    // Define a periodic runnable for checking dialog state
+    private val dialogCheckRunnable = object : Runnable {
+        override fun run() {
+            updateEspDialogBasedOnConditions()
+            // Adjust the interval (in milliseconds) as needed.
+            handler.postDelayed(this, 1_000L) // re-check every 1 seconds
+        }
+    }
 
     override fun onResume() {
         super.onResume()
         Log.d("HomeFragment", "Fragment resumed")
+
+        // Register the snackbar receiver
         val filter = IntentFilter("ACTION_SHOW_SNACKBAR")
         ContextCompat.registerReceiver(
             requireContext(), snackbarReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
         )
-        // Update the dialog state once when resuming.
+
+        // Update dialog state immediately on resume
         updateEspDialogBasedOnConditions()
+
+        // Start periodic checks to ensure the dialog state is correct within the time window
+        handler.post(dialogCheckRunnable)
     }
 
     override fun onPause() {
         super.onPause()
         Log.d("HomeFragment", "Fragment paused")
+
+        // Unregister the snackbar receiver
         requireContext().unregisterReceiver(snackbarReceiver)
+
+        // Dismiss the persistent dialog
         dismissPersistentDialog()
+
+        // Remove the periodic dialog check callbacks to prevent leaks or unnecessary processing
+        handler.removeCallbacks(dialogCheckRunnable)
     }
+
 
     /**
      * Checks the current time and, if within the start/end window, shows or dismisses
      * the dialog based on the ESP connection status.
      */
     private fun updateEspDialogBasedOnConditions() {
-        Log.d("HomeFragment", "Checking ESP connection at the scheduled start time and within time window.")
+        Log.d(
+            "HomeFragment",
+            "Checking ESP connection at the scheduled start time and within time window."
+        )
 
         val currentTime = System.currentTimeMillis()
         val startTime = viewModel.startTime.value?.let { convertTimeToMillis(it) } ?: 0L
@@ -190,9 +223,13 @@ class HomeFragment : Fragment() {
         }
 
         val withinTimeWindow = currentTime in startTime..endTime
-        val isStartTime = (currentTime in startTime..(startTime + 60_000L)) // 1-minute threshold at start time
+        val isStartTime =
+            (currentTime in startTime..(startTime + 60_000L)) // 1-minute threshold at start time
 
-        Log.d("HomeFragment", "Current Time: $currentTime, Start Time: $startTime, End Time: $endTime, Within Window: $withinTimeWindow, Is Start Time: $isStartTime")
+        Log.d(
+            "HomeFragment",
+            "Current Time: $currentTime, Start Time: $startTime, End Time: $endTime, Within Window: $withinTimeWindow, Is Start Time: $isStartTime"
+        )
 
         if (isStartTime || withinTimeWindow) {
             if (!UsbProximityService.isConnected) {
