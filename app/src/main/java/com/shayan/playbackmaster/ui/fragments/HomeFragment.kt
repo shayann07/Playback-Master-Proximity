@@ -26,11 +26,13 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.findNavController
+import androidx.navigation.fragment.findNavController
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.snackbar.Snackbar
 import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.databinding.FragmentHomeBinding
 import com.shayan.playbackmaster.receivers.ProximityReceiver
+import com.shayan.playbackmaster.services.PlaybackService
 import com.shayan.playbackmaster.services.UsbProximityService
 import com.shayan.playbackmaster.ui.viewmodel.AppViewModel
 import com.shayan.playbackmaster.utils.AlarmUtils
@@ -60,6 +62,49 @@ class HomeFragment : Fragment() {
                 Log.d("HomeFragment", "Snackbar message received: $message")
                 message?.let {
                     Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
+
+    private val showVideoReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "ACTION_SHOW_VIDEO_FRAGMENT") {
+                val videoUri = intent.getStringExtra("VIDEO_URI")
+                if (!videoUri.isNullOrEmpty()) {
+                    Log.d(
+                        "HomeFragment", "Received request to show VideoFragment with URI: $videoUri"
+                    )
+
+                    val bundle = Bundle().apply {
+                        putString("VIDEO_URI", videoUri)
+                    }
+
+                    findNavController().navigate(R.id.action_homeFragment_to_videoFragment, bundle)
+                } else {
+                    Log.e(
+                        "HomeFragment", "Received null or empty video URI. Cannot start playback."
+                    )
+                }
+            }
+        }
+    }
+
+    private val proximityReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                "ACTION_PROXIMITY_DETECTED" -> {
+                    Log.d("HomeFragment", "👀 Proximity detected! Starting playback.")
+                    context?.startService(Intent(context, PlaybackService::class.java).apply {
+                        action = "ACTION_PLAY_VIDEO"
+                    })
+                }
+
+                "ACTION_PROXIMITY_LOST" -> {
+                    Log.d("HomeFragment", "🛑 Proximity lost! Stopping playback.")
+                    context?.startService(Intent(context, PlaybackService::class.java).apply {
+                        action = "ACTION_STOP_VIDEO"
+                    })
                 }
             }
         }
@@ -167,7 +212,7 @@ class HomeFragment : Fragment() {
         override fun run() {
             updateEspDialogBasedOnConditions()
             // Adjust the interval (in milliseconds) as needed.
-            handler.postDelayed(this, 1_000L) // re-check every 1 seconds
+            handler.postDelayed(this, 5_000L) // re-check every 1 seconds
         }
     }
 
@@ -181,6 +226,18 @@ class HomeFragment : Fragment() {
             requireContext(), snackbarReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
+        ContextCompat.registerReceiver(
+            requireContext(), showVideoReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+
+        val filterSignals = IntentFilter().apply {
+            addAction("ACTION_PROXIMITY_DETECTED")
+            addAction("ACTION_PROXIMITY_LOST")
+        }
+        ContextCompat.registerReceiver(
+            requireContext(), proximityReceiver, filterSignals, ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+
         // Update dialog state immediately on resume
         updateEspDialogBasedOnConditions()
 
@@ -192,8 +249,11 @@ class HomeFragment : Fragment() {
         super.onPause()
         Log.d("HomeFragment", "Fragment paused")
 
+
         // Unregister the snackbar receiver
         requireContext().unregisterReceiver(snackbarReceiver)
+        requireContext().unregisterReceiver(proximityReceiver)
+        requireContext().unregisterReceiver(showVideoReceiver)
 
         // Dismiss the persistent dialog
         dismissPersistentDialog()

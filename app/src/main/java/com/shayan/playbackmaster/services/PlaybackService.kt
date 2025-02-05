@@ -28,6 +28,7 @@ class PlaybackService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var isProximityDetected = false
     private val proximityReceiver = ProximityReceiver()
+    private var isPlaying = false
 
     companion object {
         private const val TAG = "PlaybackService"
@@ -52,33 +53,33 @@ class PlaybackService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("PlaybackService", "Service command start: Action: ${intent?.action}")
-
-        val preferencesHelper = PreferencesHelper(this)
-
         when (intent?.action) {
-            ACTION_PROXIMITY_DETECTED -> {
-                isProximityDetected = true
-                Log.d(TAG, "Proximity detected. Handling proximity signal.")
-                handleProximitySignal("1")
+            "ACTION_PLAY_VIDEO" -> {
+                if (!isPlaying) {
+                    Log.d("PlaybackService", "Starting Video Playback")
+                    isPlaying = true
+                    val preferencesHelper = PreferencesHelper(this)
+                    val videoUri = preferencesHelper.getVideoUri()
+
+                    if (!videoUri.isNullOrEmpty()) {
+                        val videoIntent = Intent("ACTION_SHOW_VIDEO_FRAGMENT")
+                        videoIntent.putExtra("VIDEO_URI", videoUri)
+                        sendBroadcast(videoIntent)  // ✅ Broadcasts the video URI
+                    } else {
+                        Log.e("PlaybackService", "Video URI is null or empty. Cannot play video.")
+                    }
+                }
             }
 
-            ACTION_PROXIMITY_LOST -> {
-                isProximityDetected = false
-                Log.d(TAG, "Proximity lost. Stopping playback.")
-                stopPlayback()
-            }
-
-            ACTION_ALARM_TRIGGERED -> {
-                Log.d(TAG, "Alarm triggered. Checking if playback should start.")
-                if (shouldStartPlayback(preferencesHelper)) {
-                    startPlayback(preferencesHelper)
-                } else {
-                    Log.d(TAG, "Playback conditions not met, playback not started.")
+            "ACTION_STOP_VIDEO" -> {
+                if (isPlaying) {
+                    Log.d("PlaybackService", "Stopping Video Playback")
+                    isPlaying = false
+                    sendBroadcast(Intent("ACTION_STOP_VIDEO"))
+                    stopSelf()
                 }
             }
         }
-
         return START_STICKY
     }
 

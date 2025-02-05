@@ -6,9 +6,7 @@
     <!-- Hardware Features -->
     <uses-feature android:name="android.hardware.usb.host" />
 
-
     <!-- Permissions -->
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
@@ -39,7 +37,14 @@
         <service
             android:name=".services.UsbProximityService"
             android:enabled="true"
-            android:exported="false" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
+        </service>
 
         <!-- Main Activity -->
         <activity
@@ -53,14 +58,13 @@
             </intent-filter>
         </activity>
 
-        <!-- Playback Service (Runs in Foreground) -->
+        <!-- Playback Service -->
         <service
             android:name=".services.PlaybackService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback"
-            android:permission="android.permission.FOREGROUND_SERVICE" />
+            android:foregroundServiceType="mediaPlayback" />
 
-        <!-- Boot Receiver (Ensures Playback Resumes after Reboot) -->
+        <!-- Boot Receiver -->
         <receiver
             android:name=".receivers.BootReceiver"
             android:enabled="true"
@@ -70,7 +74,7 @@
             </intent-filter>
         </receiver>
 
-        <!-- Proximity Receiver (Handles ESP Proximity Events) -->
+        <!-- Proximity Receiver -->
         <receiver
             android:name=".receivers.ProximityReceiver"
             android:enabled="true"
@@ -78,8 +82,12 @@
             <intent-filter>
                 <action android:name="ACTION_PROXIMITY_DETECTED" />
                 <action android:name="ACTION_PROXIMITY_LOST" />
-                <action android:name="com.shayan.playbackmaster.USB_PERMISSION" />
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+                <action android:name="com.android.example.USB_PERMISSION" />
             </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
         </receiver>
 
     </application>

@@ -18,15 +18,20 @@ class ProximityReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        Log.d("ProximityReceiver", "Received intent: ${intent.action}")
         when (intent.action) {
             ACTION_PROXIMITY_DETECTED -> {
                 Log.i(TAG, "Proximity detected. Starting PlaybackService...")
-                startPlaybackService(context, ACTION_PROXIMITY_DETECTED)
+                context.startService(Intent(context, PlaybackService::class.java).apply {
+                    action = "ACTION_PLAY_VIDEO"
+                })
             }
 
             ACTION_PROXIMITY_LOST -> {
                 Log.i(TAG, "Proximity lost. Stopping playback...")
-                startPlaybackService(context, ACTION_PROXIMITY_LOST)
+                context.startService(Intent(context, PlaybackService::class.java).apply {
+                    action = "ACTION_STOP_VIDEO"
+                })
             }
 
             USB_PERMISSION_ACTION -> {
@@ -50,16 +55,15 @@ class ProximityReceiver : BroadcastReceiver() {
 
     /**
      * Starts the PlaybackService with the given action.
-     */
-    private fun startPlaybackService(context: Context, action: String) {
-        try {
-            val serviceIntent = Intent(context, PlaybackService::class.java).apply {
-                this.action = action
-            }
-            context.startService(serviceIntent)
-            Log.d(TAG, "Service started successfully with action: $action")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to start PlaybackService: ${e.message}", e)
-        }
-    }
+     *//* private fun startPlaybackService(context: Context, action: String) {
+         try {
+             val serviceIntent = Intent(context, PlaybackService::class.java).apply {
+                 this.action = action
+             }
+             context.startService(serviceIntent)
+             Log.d(TAG, "Service started successfully with action: $action")
+         } catch (e: Exception) {
+             Log.e(TAG, "Failed to start PlaybackService: ${e.message}", e)
+         }
+     }*/
 }

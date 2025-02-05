@@ -1,6 +1,5 @@
 package com.shayan.playbackmaster.services
 
-import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -15,7 +14,7 @@ import androidx.annotation.RequiresApi
 import com.hoho.android.usbserial.driver.UsbSerialPort
 import com.hoho.android.usbserial.driver.UsbSerialProber
 import com.shayan.playbackmaster.data.preferences.PreferencesHelper
-import com.shayan.playbackmaster.receivers.ProximityReceiver
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -32,14 +31,19 @@ class UsbProximityService : Service() {
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             Log.d(TAG, "Received broadcast: ${intent?.action}")
-            if (intent?.action == USB_PERMISSION_ACTION) {
+
+            if (intent?.action == USB_PERMISSION_ACTION) {  // ✅ Now it's correctly placed
                 val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                 val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
                 Log.d(TAG, "USB permission result: $granted for device: $device")
 
                 if (granted && device != null) {
                     val usbManager = getSystemService(USB_SERVICE) as UsbManager
-                    setupUsbConnection(device, usbManager)
+                    if (usbManager.hasPermission(device)) {  // ✅ Correctly check before setup
+                        setupUsbConnection(device, usbManager)
+                    } else {
+                        Log.e(TAG, "USB permission denied after request.")
+                    }
                 } else {
                     isConnected = false
                     Log.d(
@@ -81,9 +85,10 @@ class UsbProximityService : Service() {
             sendErrorBroadcast("ESP connection lost.")
             sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
         } else {
-            val usbDevice = deviceList.values.firstOrNull()
+            val usbDevice = deviceList.values.first()
             if (usbDevice != null) {
                 isConnected = true
+                setupUsbConnection(usbDevice, usbManager)
                 Log.d(TAG, "ESP device found: $usbDevice, isConnected set to $isConnected")
 
             } else {
@@ -97,57 +102,91 @@ class UsbProximityService : Service() {
 
     private fun setupUsbConnection(device: UsbDevice, usbManager: UsbManager) {
         Log.d(TAG, "Attempting to set up USB connection for device: $device")
+
+        if (!usbManager.hasPermission(device)) {
+            Log.e(TAG, "USB permission not granted for device: $device")
+            return
+        }
+
         val driver = UsbSerialProber.getDefaultProber().probeDevice(device)
-        if (driver != null) {
-            val connection = usbManager.openDevice(driver.device)
-            if (connection != null) {
-                val port = driver.ports.first()
-                try {
-                    port.open(connection)
-                    port.setParameters(
-                        115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE
-                    )
-                    listenToProximitySignals(port)
-                    isConnected = true
-                    Log.d(TAG, "USB connection established. isConnected set to $isConnected")
-                    sendBroadcast(Intent("ACTION_USB_CONNECTED"))
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to open USB device: ${e.message}", e)
-                    isConnected = false
-                    broadcastSnackbar("Failed to open USB device.")
-                }
-            } else {
-                Log.d(TAG, "Failed to open connection for USB device.")
+        if (driver == null) {
+            Log.e(TAG, "No driver found for USB device!")
+            return
+        }
+
+        val connection = usbManager.openDevice(driver.device)
+        if (connection == null) {
+            Log.e(TAG, "UsbManager.openDevice() returned null!")
+            return
+        }
+
+        val port = driver.ports.first()
+        try {
+            port.open(connection)
+            Thread.sleep(100)
+
+            try {
+                port.purgeHwBuffers(true, true)
+            } catch (e: UnsupportedOperationException) {
+                Log.w(TAG, "purgeHwBuffers not supported on this device: ${e.message}")
             }
-        } else {
-            isConnected = false
-            Log.d(TAG, "No suitable USB driver found for the device.")
-            broadcastSnackbar("No suitable USB driver found.")
+
+            port.setParameters(115200, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+
+            Log.d(TAG, "✅ USB Connection successful! Listening for data now...")
+            listenToProximitySignals(port)
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to open USB device: ${e.message}", e)
         }
     }
 
 
-
     private fun listenToProximitySignals(port: UsbSerialPort) {
-        Log.d(TAG, "Starting to listen for proximity signals.")
+        Log.d(TAG, "Listening for ESP32 Proximity Signals...")
+
         Thread {
             try {
                 val buffer = ByteArray(100)
-                while (true) {
+                while (isConnected) {
                     val len = port.read(buffer, 500)
+
+                    // ✅ Detect disconnection
+                    if (len < 0) {
+                        Log.e(TAG, "❌ USB disconnected while reading. Exiting thread.")
+                        break
+                    }
+
                     if (len > 0) {
                         val signal = String(buffer, 0, len, Charsets.UTF_8).trim()
-                        handleSignal(signal)
+                        Log.d(TAG, "✅ Received Signal: '$signal'")
+
+                        when (signal) {
+                            "1" -> {
+                                Log.d(TAG, "📡 Proximity Detected. Playing Video.")
+                                sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
+                            }
+
+                            "0" -> {
+                                Log.d(TAG, "🚫 Proximity Lost. Stopping Video.")
+                                sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
+                            }
+
+                            else -> {
+                                Log.w(TAG, "⚠️ Invalid signal received: '$signal'")
+                            }
+                        }
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Error in USB communication: ${e.message}", e)
-                isConnected = false
-                broadcastSnackbar("Error in USB communication.")
+            } catch (e: IOException) {
+                Log.e(TAG, "⚠️ USB Read Error: ${e.message}. Device might be disconnected.", e)
             } finally {
                 isConnected = false
-                port.close()
-                Log.d(TAG, "Stopped listening for proximity signals. Port closed.")
+                try {
+                    port.close()
+                    Log.d(TAG, "✅ Port closed after disconnection.")
+                } catch (e: Exception) {
+                    Log.e(TAG, "⚠️ Error closing USB port: ${e.message}", e)
+                }
             }
         }.start()
     }
@@ -216,8 +255,14 @@ class UsbProximityService : Service() {
     }
 
     private fun broadcastSnackbar(message: String) {
-        Log.d(TAG, "Broadcasting snackbar message: $message")
-        sendBroadcast(Intent("ACTION_SHOW_SNACKBAR").apply { putExtra("MESSAGE", message) })
+        if (!isConnected) {
+            Log.d(TAG, "⚠️ Skipping snackbar broadcast because USB is disconnected.")
+            return
+        }
+        Log.d(TAG, "📢 Broadcasting snackbar message: $message")
+        sendBroadcast(Intent("ACTION_SHOW_SNACKBAR").apply {
+            putExtra("MESSAGE", message)
+        })
     }
 
     private fun sendErrorBroadcast(error: String) {
