@@ -225,9 +225,11 @@ class HomeFragment : Fragment() {
         ContextCompat.registerReceiver(
             requireContext(), snackbarReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
         )
+//        / register showVideoReceiver
+        val showVideoIntentFilter = IntentFilter("ACTION_SHOW_VIDEO_FRAGMENT")
 
         ContextCompat.registerReceiver(
-            requireContext(), showVideoReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
+            requireContext(), showVideoReceiver, showVideoIntentFilter, ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
         val filterSignals = IntentFilter().apply {
