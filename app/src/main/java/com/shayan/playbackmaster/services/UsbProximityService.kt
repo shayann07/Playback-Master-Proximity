@@ -160,19 +160,36 @@ class UsbProximityService : Service() {
                         val signal = String(buffer, 0, len, Charsets.UTF_8).trim()
                         Log.d(TAG, "✅ Received Signal: '$signal'")
 
-                        when (signal) {
-                            "1" -> {
-                                Log.d(TAG, "📡 Proximity Detected. Playing Video.")
-                                sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
-                            }
+                        val snackbarIntent = Intent("ACTION_SHOW_SNACKBAR")
 
-                            "0" -> {
-                                Log.d(TAG, "🚫 Proximity Lost. Stopping Video.")
-                                sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
-                            }
+//                        handleSignal(signal)
+                        val withinTime = isWithinScheduledTime(PreferencesHelper(this))
+                        if (!withinTime || !isConnected) {
+                            Log.d(TAG, "Outside schedule, skip sending broadcast.")
+                        } else {
+                            when (signal) {
+                                "1" -> {
+                                    Log.d(TAG, "📡 Proximity Detected. Playing Video.")
+                                    sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
+                                    snackbarIntent.putExtra(
+                                        "MESSAGE", "ESP Signal Received: 1 (Proximity Detected)"
+                                    )
+                                }
 
-                            else -> {
-                                Log.w(TAG, "⚠️ Invalid signal received: '$signal'")
+                                "0" -> {
+                                    Log.d(TAG, "🚫 Proximity Lost. Stopping Video.")
+                                    sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
+                                    snackbarIntent.putExtra(
+                                        "MESSAGE", "ESP Signal Received: 0 (Proximity Lost)"
+                                    )
+                                }
+
+                                else -> {
+                                    Log.w(TAG, "⚠️ Invalid signal received: '$signal'")
+                                    snackbarIntent.putExtra(
+                                        "MESSAGE", "ESP Error: Invalid Signal - '$signal'"
+                                    )
+                                }
                             }
                         }
                     }
@@ -191,39 +208,6 @@ class UsbProximityService : Service() {
         }.start()
     }
 
-    private fun handleSignal(signal: String) {
-        Log.d(TAG, "Received signal: $signal")
-        val cleanedSignal = signal.trim().replace(Regex("[^01]"), "")
-        Log.d(TAG, "Cleaned signal for processing: $cleanedSignal")
-
-        val snackbarIntent = Intent("ACTION_SHOW_SNACKBAR")
-        val preferencesHelper = PreferencesHelper(this)
-
-        if (!isWithinScheduledTime(preferencesHelper) || !isConnected) {
-            Log.d(TAG, "Signal received outside of scheduled time or when disconnected.")
-            return
-        }
-
-        when (cleanedSignal) {
-            "1" -> {
-                sendBroadcast(Intent("ACTION_PROXIMITY_DETECTED"))
-                snackbarIntent.putExtra("MESSAGE", "ESP Signal Received: 1 (Proximity Detected)")
-                Log.d(TAG, "Proximity detected signal processed.")
-            }
-
-            "0" -> {
-                sendBroadcast(Intent("ACTION_PROXIMITY_LOST"))
-                snackbarIntent.putExtra("MESSAGE", "ESP Signal Received: 0 (Proximity Lost)")
-                Log.d(TAG, "Proximity lost signal processed.")
-            }
-
-            else -> {
-                snackbarIntent.putExtra("MESSAGE", "ESP Error: Invalid Signal - '$cleanedSignal'")
-                Log.d(TAG, "Received invalid signal: $cleanedSignal")
-            }
-        }
-        sendBroadcast(snackbarIntent)
-    }
 
     private fun isWithinScheduledTime(preferencesHelper: PreferencesHelper): Boolean {
         val startTime = preferencesHelper.getStartTime() ?: return false

@@ -35,7 +35,6 @@ class PlaybackService : Service() {
         private const val NOTIFICATION_CHANNEL_ID = "playback_channel"
         private const val ACTION_PROXIMITY_DETECTED = "ACTION_PROXIMITY_DETECTED"
         private const val ACTION_PROXIMITY_LOST = "ACTION_PROXIMITY_LOST"
-        private const val ACTION_ALARM_TRIGGERED = "ACTION_ALARM_TRIGGERED"
     }
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -61,7 +60,7 @@ class PlaybackService : Service() {
                     val preferencesHelper = PreferencesHelper(this)
                     val videoUri = preferencesHelper.getVideoUri()
 
-                    if (!videoUri.isNullOrEmpty()) {
+                    if (!videoUri.isNullOrEmpty() && isWithinScheduledTime(preferencesHelper)) {
                         val videoIntent = Intent("ACTION_SHOW_VIDEO_FRAGMENT")
                         videoIntent.putExtra("VIDEO_URI", videoUri)
                         sendBroadcast(videoIntent)  // ✅ Broadcasts the video URI
@@ -74,9 +73,12 @@ class PlaybackService : Service() {
             "ACTION_STOP_VIDEO" -> {
                 if (isPlaying) {
                     Log.d("PlaybackService", "Stopping Video Playback")
-                    isPlaying = false
-                    sendBroadcast(Intent("ACTION_STOP_VIDEO"))
-                    stopSelf()
+                    val preferencesHelper = PreferencesHelper(this)
+                    if (!isWithinScheduledTime(preferencesHelper) || !isProximityDetected) {
+                        isPlaying = false
+                        sendBroadcast(Intent("ACTION_STOP_VIDEO"))
+                        stopSelf()
+                    }
                 }
             }
         }
