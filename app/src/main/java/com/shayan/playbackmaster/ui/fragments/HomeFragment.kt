@@ -31,7 +31,6 @@ import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.snackbar.Snackbar
 import com.shayan.playbackmaster.R
 import com.shayan.playbackmaster.databinding.FragmentHomeBinding
-import com.shayan.playbackmaster.receivers.ProximityReceiver
 import com.shayan.playbackmaster.services.PlaybackService
 import com.shayan.playbackmaster.services.UsbProximityService
 import com.shayan.playbackmaster.ui.viewmodel.AppViewModel
@@ -43,22 +42,93 @@ import java.util.Calendar
 
 class HomeFragment : Fragment() {
 
+    companion object {
+        // Your custom USB permission action
+        const val USB_PERMISSION_ACTION = "com.shayan.playbackmaster.USB_PERMISSION"
+    }
+
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
     private val viewModel: AppViewModel by activityViewModels()
 
-    // We no longer use a polling Runnable.
     private val handler = Handler(Looper.getMainLooper())
     private var noEspDialog: AlertDialog? = null
-
-    // We now rely on the static variable from UsbProximityService directly.
-    // private var wasEspConnected = UsbProximityService.isConnected  // Not used now.
     private var isEspReceiverRegistered = false
 
+    // ----------------------------------------------------------------------
+    // 1) USB Permission Receiver
+    // ----------------------------------------------------------------------
+    /**
+     * Listens for the result of our dynamic USB permission request.
+     * When the user grants or denies permission, we get a broadcast
+     * with action = USB_PERMISSION_ACTION.
+     */
+    private val usbPermissionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == USB_PERMISSION_ACTION) {
+                synchronized(this) {
+                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                    val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
+                    if (granted && device != null) {
+                        Log.d("HomeFragment", "Permission granted for device: ${device.deviceName}")
+                        // If needed, open the device or pass it to your service:
+                        // openUsbDevice(device)
+                    } else {
+                        Log.e("HomeFragment", "Permission denied for device: ${device?.deviceName}")
+                    }
+                }
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // 2) USB Attach/Detach Receiver
+    // ----------------------------------------------------------------------
+    private val espConnectedReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
+                    val usbManager = context?.getSystemService(Context.USB_SERVICE) as UsbManager
+                    val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    if (device != null) {
+                        Log.d(
+                            "USBReceiver",
+                            "USB device attached: vendorId=${device.vendorId}, productId=${device.productId}"
+                        )
+                        // Mark it as connected for your logic
+                        UsbProximityService.isConnected = true
+                        dismissPersistentDialog()
+
+                        // If we don't already have permission, request it
+                        if (!usbManager.hasPermission(device)) {
+                            requestUsbPermission(device)
+                        } else {
+                            // Already have permission; optionally open or read device
+                            // openUsbDevice(device)
+                        }
+                    }
+                }
+
+                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
+                    val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    Log.d("USBReceiver", "USB device detached: ${device?.deviceName}")
+                    UsbProximityService.isConnected = false
+
+                    if (shouldShowDialogBasedOnTime()) {
+                        showPersistentDialog()
+                    }
+                }
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------------
+    // 3) Other Broadcast Receivers (SnackBar, ShowVideo, Proximity)
+    // ----------------------------------------------------------------------
     private val snackbarReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "ACTION_SHOW_SNACKBAR") {
-                val message = intent.getStringExtra("MESSAGE")
+                val message = intent?.getStringExtra("MESSAGE")
                 Log.d("HomeFragment", "Snackbar message received: $message")
                 message?.let {
                     Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
@@ -70,21 +140,14 @@ class HomeFragment : Fragment() {
     private val showVideoReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == "ACTION_SHOW_VIDEO_FRAGMENT") {
-                val videoUri = intent.getStringExtra("VIDEO_URI")
+                val videoUri = intent?.getStringExtra("VIDEO_URI")
                 if (!videoUri.isNullOrEmpty()) {
-                    Log.d(
-                        "HomeFragment", "Received request to show VideoFragment with URI: $videoUri"
-                    )
+                    Log.d("HomeFragment", "Received request to show VideoFragment: $videoUri")
 
-                    val bundle = Bundle().apply {
-                        putString("VIDEO_URI", videoUri)
-                    }
-
+                    val bundle = Bundle().apply { putString("VIDEO_URI", videoUri) }
                     findNavController().navigate(R.id.action_homeFragment_to_videoFragment, bundle)
                 } else {
-                    Log.e(
-                        "HomeFragment", "Received null or empty video URI. Cannot start playback."
-                    )
+                    Log.e("HomeFragment", "Empty video URI. Cannot start playback.")
                 }
             }
         }
@@ -110,38 +173,9 @@ class HomeFragment : Fragment() {
         }
     }
 
-
-    private val espConnectedReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            when (intent?.action) {
-                UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
-                    val usbManager = context?.getSystemService(Context.USB_SERVICE) as UsbManager
-                    val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-
-                    if (device != null) {
-                        Log.d("USBReceiver", "USB device attached: ${device.deviceName}")
-
-                        UsbProximityService.isConnected = true
-                        dismissPersistentDialog()
-                        if (!usbManager.hasPermission(device)) {
-                            requestUsbPermission(device) // Request permission only if not granted
-                        }
-                    }
-                }
-
-                UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    val device: UsbDevice? = intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
-                    Log.d("USBReceiver", "USB device detached: ${device?.deviceName}")
-                    UsbProximityService.isConnected = false
-                    if (shouldShowDialogBasedOnTime()) {
-                        showPersistentDialog()
-                    }
-                }
-            }
-        }
-    }
-
-
+    // ----------------------------------------------------------------------
+    // 4) onCreateView / onViewCreated
+    // ----------------------------------------------------------------------
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View {
@@ -153,9 +187,8 @@ class HomeFragment : Fragment() {
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        Log.d("HomeFragment", "View created")
 
-        // Initialize UI components and ViewModel
+        // Initialize your UI & ViewModel
         viewModel.loadVideoDetails()
         observeViewModel()
         setupTimeSelection()
@@ -164,7 +197,7 @@ class HomeFragment : Fragment() {
         setupBatteryOptimisation()
         initializeScreenLockSwitch()
 
-        // Register USB device receiver dynamically
+        // Register USB attach/detach
         val usbFilter = IntentFilter().apply {
             addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED)
             addAction(UsbManager.ACTION_USB_DEVICE_DETACHED)
@@ -172,78 +205,61 @@ class HomeFragment : Fragment() {
         requireContext().registerReceiver(espConnectedReceiver, usbFilter)
         isEspReceiverRegistered = true
 
-        // Check for connected USB devices on launch
+        // Check if devices already connected
         val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
         val deviceList = usbManager.deviceList
         UsbProximityService.isConnected = deviceList.isNotEmpty()
-        Log.d("HomeFragment", "Initial USB connection state: ${UsbProximityService.isConnected}")
+        Log.d("HomeFragment", "Initial USB state: ${UsbProximityService.isConnected}")
 
-        /*.any { device ->
-            // Add device filtering logic here (e.g., vendor/product ID checks)
-            // For now, assume any connected device is the ESP32
-            true
-        }*/
-
-        // Update dialog state based on ESP connection and time window
+        // Update dialog state
         updateEspDialogBasedOnConditions()
     }
 
-    private fun requestUsbPermission(device: UsbDevice) {
-        val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
-
-        // Use an explicit intent to avoid security issues
-        val usbPermissionIntent = Intent(requireContext(), ProximityReceiver::class.java).apply {
-            action = ProximityReceiver.USB_PERMISSION_ACTION
-        }
-
-        val permissionIntent = PendingIntent.getBroadcast(
-            requireContext(),
-            0,
-            usbPermissionIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE // Ensures mutability
-        )
-
-        usbManager.requestPermission(device, permissionIntent)
-        Log.d("HomeFragment", "Requesting USB permission for device: ${device.deviceName}")
-    }
-
-    // Define a periodic runnable for checking dialog state
-    private val dialogCheckRunnable = object : Runnable {
-        override fun run() {
-            updateEspDialogBasedOnConditions()
-            // Adjust the interval (in milliseconds) as needed.
-            handler.postDelayed(this, 5_000L) // re-check every 1 seconds
-        }
-    }
-
+    // ----------------------------------------------------------------------
+    // 5) onResume / onPause: register/unregister dynamic receivers
+    // ----------------------------------------------------------------------
     override fun onResume() {
         super.onResume()
         Log.d("HomeFragment", "Fragment resumed")
 
-        // Register the snackbar receiver
-        val filter = IntentFilter("ACTION_SHOW_SNACKBAR")
+        // (A) Register the snackbar receiver
+        val snackFilter = IntentFilter("ACTION_SHOW_SNACKBAR")
         ContextCompat.registerReceiver(
-            requireContext(), snackbarReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED
+            requireContext(), snackbarReceiver, snackFilter, ContextCompat.RECEIVER_NOT_EXPORTED
         )
-//        / register showVideoReceiver
+
+        // (B) Register the showVideo receiver
         val showVideoIntentFilter = IntentFilter("ACTION_SHOW_VIDEO_FRAGMENT")
-
         ContextCompat.registerReceiver(
-            requireContext(), showVideoReceiver, showVideoIntentFilter, ContextCompat.RECEIVER_NOT_EXPORTED
+            requireContext(),
+            showVideoReceiver,
+            showVideoIntentFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
-        val filterSignals = IntentFilter().apply {
+        // (C) Register the proximity signals
+        val proximityFilter = IntentFilter().apply {
             addAction("ACTION_PROXIMITY_DETECTED")
             addAction("ACTION_PROXIMITY_LOST")
         }
         ContextCompat.registerReceiver(
-            requireContext(), proximityReceiver, filterSignals, ContextCompat.RECEIVER_NOT_EXPORTED
+            requireContext(),
+            proximityReceiver,
+            proximityFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
         )
 
-        // Update dialog state immediately on resume
-        updateEspDialogBasedOnConditions()
+        // (D) Register our dynamic USB permission receiver
+        val permissionFilter = IntentFilter(USB_PERMISSION_ACTION)
+        ContextCompat.registerReceiver(
+            requireContext(),
+            usbPermissionReceiver,
+            permissionFilter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
 
-        // Start periodic checks to ensure the dialog state is correct within the time window
+        // Update dialog & start periodic checks
+        updateEspDialogBasedOnConditions()
         handler.post(dialogCheckRunnable)
     }
 
@@ -251,54 +267,105 @@ class HomeFragment : Fragment() {
         super.onPause()
         Log.d("HomeFragment", "Fragment paused")
 
-
-        // Unregister the snackbar receiver
+        // Unregister all the dynamic receivers
         requireContext().unregisterReceiver(snackbarReceiver)
-        requireContext().unregisterReceiver(proximityReceiver)
         requireContext().unregisterReceiver(showVideoReceiver)
+        requireContext().unregisterReceiver(proximityReceiver)
+        requireContext().unregisterReceiver(usbPermissionReceiver)
 
         // Dismiss the persistent dialog
         dismissPersistentDialog()
 
-        // Remove the periodic dialog check callbacks to prevent leaks or unnecessary processing
+        // Stop periodic checks
         handler.removeCallbacks(dialogCheckRunnable)
     }
 
+    override fun onDestroyView() {
+        super.onDestroyView()
+        Log.d("HomeFragment", "Destroying view; unregistering ESP receiver")
 
+        if (isEspReceiverRegistered) {
+            requireContext().unregisterReceiver(espConnectedReceiver)
+            isEspReceiverRegistered = false
+        }
+        _binding = null
+    }
+
+    // ----------------------------------------------------------------------
+    // 6) Requesting USB Permission
+    // ----------------------------------------------------------------------
     /**
-     * Checks the current time and, if within the start/end window, shows or dismisses
-     * the dialog based on the ESP connection status.
+     * Called whenever we detect a newly attached device that doesn't
+     * already have permission. We'll send an Intent with action=USB_PERMISSION_ACTION
+     * and then our usbPermissionReceiver will handle the result.
      */
-    private fun updateEspDialogBasedOnConditions() {
-        Log.d(
-            "HomeFragment",
-            "Checking ESP connection at the scheduled start time and within time window."
+    private fun requestUsbPermission(device: UsbDevice) {
+        val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
+
+        val usbPermissionIntent = Intent(USB_PERMISSION_ACTION)
+
+        val permissionIntent = PendingIntent.getBroadcast(
+            requireContext(),
+            0,
+            usbPermissionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         )
+
+        usbManager.requestPermission(device, permissionIntent)
+        Log.d("HomeFragment", "Requesting USB permission for device: ${device.deviceName}")
+    }
+
+    // If you want to open the device after permission is granted:
+    /*
+    private fun openUsbDevice(device: UsbDevice) {
+        val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
+        val connection = usbManager.openDevice(device)
+        if (connection == null) {
+            Log.e("HomeFragment", "openUsbDevice: Failed to open device.")
+            return
+        }
+        val usbInterface = device.getInterface(0)
+        if (connection.claimInterface(usbInterface, true)) {
+            Log.d("HomeFragment", "Interface claimed. You can do I/O here.")
+        } else {
+            Log.e("HomeFragment", "Failed to claim interface.")
+            connection.close()
+        }
+    }
+    */
+
+    // ----------------------------------------------------------------------
+    // 7) Periodic Dialog Checking
+    // ----------------------------------------------------------------------
+    private val dialogCheckRunnable = object : Runnable {
+        override fun run() {
+            updateEspDialogBasedOnConditions()
+            handler.postDelayed(this, 5_000L) // re-check every 5 seconds
+        }
+    }
+
+    private fun updateEspDialogBasedOnConditions() {
+        // your existing logic ...
+        Log.d("HomeFragment", "Checking ESP connection/time window...")
 
         val currentTime = System.currentTimeMillis()
         val startTime = viewModel.startTime.value?.let { convertTimeToMillis(it) } ?: 0L
         val endTime = viewModel.endTime.value?.let { convertTimeToMillis(it) } ?: 0L
 
         if (startTime == 0L || endTime == 0L) {
-            dismissPersistentDialog() // Hide dialog if time is not set
+            dismissPersistentDialog()
             return
         }
 
         val withinTimeWindow = currentTime in startTime..endTime
-        val isStartTime =
-            (currentTime in startTime..(startTime + 60_000L)) // 1-minute threshold at start time
-
-        Log.d(
-            "HomeFragment",
-            "Current Time: $currentTime, Start Time: $startTime, End Time: $endTime, Within Window: $withinTimeWindow, Is Start Time: $isStartTime"
-        )
+        val isStartTime = currentTime in startTime..(startTime + 60_000L)
 
         if (isStartTime || withinTimeWindow) {
             if (!UsbProximityService.isConnected) {
-                Log.d("HomeFragment", "ESP is not connected. Showing ESP Disconnected dialog.")
+                Log.d("HomeFragment", "ESP not connected; showing dialog.")
                 showPersistentDialog()
             } else {
-                Log.d("HomeFragment", "ESP is connected. Dismissing ESP Disconnected dialog.")
+                Log.d("HomeFragment", "ESP connected; dismissing dialog.")
                 dismissPersistentDialog()
             }
         } else {
@@ -306,50 +373,19 @@ class HomeFragment : Fragment() {
         }
     }
 
-
-    /**
-     * Returns true if the current time is within the set start and end times.
-     */
     private fun shouldShowDialogBasedOnTime(): Boolean {
+        // existing logic ...
         val currentTime = System.currentTimeMillis()
         val startTime = viewModel.startTime.value?.let { convertTimeToMillis(it) } ?: 0L
         val endTime = viewModel.endTime.value?.let { convertTimeToMillis(it) } ?: 0L
-
-        if (startTime == 0L || endTime == 0L) {
-            return false
-        }
+        if (startTime == 0L || endTime == 0L) return false
         return currentTime in startTime..endTime
     }
 
-    private fun convertTimeToMillis(time: String?): Long {
-        if (time.isNullOrEmpty()) {
-            Log.e("HomeFragment", "convertTimeToMillis: Received null or empty time string")
-            return 0L
-        }
-        return try {
-            val parts = time.split(":")
-            if (parts.size != 2) {
-                Log.e("HomeFragment", "convertTimeToMillis: Invalid time format - $time")
-                return 0L
-            }
-            val hour = parts[0].toIntOrNull() ?: return 0L
-            val minute = parts[1].toIntOrNull() ?: return 0L
-            val calendar = Calendar.getInstance()
-            calendar.set(Calendar.HOUR_OF_DAY, hour)
-            calendar.set(Calendar.MINUTE, minute)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            calendar.timeInMillis
-        } catch (e: Exception) {
-            Log.e("HomeFragment", "convertTimeToMillis: Exception - ${e.message}", e)
-            0L
-        }
-    }
-
     private fun showPersistentDialog() {
+        // existing logic ...
         requireActivity().runOnUiThread {
             if (noEspDialog == null && isAdded) {
-                Log.d("HomeFragment", "Showing ESP disconnected dialog.")
                 noEspDialog = AlertDialog.Builder(requireContext()).setTitle("ESP Disconnected")
                     .setMessage("No ESP detected. Please reconnect your device.")
                     .setCancelable(false).create()
@@ -359,6 +395,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun dismissPersistentDialog() {
+        // existing logic ...
         requireActivity().runOnUiThread {
             if (isAdded && noEspDialog?.isShowing == true) {
                 noEspDialog?.dismiss()
@@ -368,22 +405,23 @@ class HomeFragment : Fragment() {
         }
     }
 
+    // ----------------------------------------------------------------------
+    // 8) Observing ViewModel, Setting Times, Alarms, etc.
+    // ----------------------------------------------------------------------
     private fun observeViewModel() {
         viewModel.videoUri.observe(viewLifecycleOwner) { uri ->
             binding.videoUriTxt.text = uri ?: "No video selected"
             updateVisibilityBasedOnVideoUpload()
         }
-
         viewModel.startTime.observe(viewLifecycleOwner) {
             binding.startTimeBtn.text = it ?: "Select Start Time"
             updateVisibilityBasedOnVideoUpload()
-            updateEspDialogBasedOnConditions() // Update dialog if the start time changes
+            updateEspDialogBasedOnConditions()
         }
-
         viewModel.endTime.observe(viewLifecycleOwner) {
             binding.endTimeBtn.text = it ?: "Select End Time"
             updateVisibilityBasedOnVideoUpload()
-            updateEspDialogBasedOnConditions() // Update dialog if the end time changes
+            updateEspDialogBasedOnConditions()
         }
     }
 
@@ -417,10 +455,9 @@ class HomeFragment : Fragment() {
         val videoUri = viewModel.videoUri.value
         val startTime = viewModel.startTime.value
         val endTime = viewModel.endTime.value
-
         if (!videoUri.isNullOrEmpty() && !startTime.isNullOrEmpty() && !endTime.isNullOrEmpty()) {
             AlarmUtils.scheduleDailyAlarm(requireContext(), videoUri, startTime, endTime)
-            Log.d("HomeFragment", "Playback alarm scheduled at: $startTime")
+            Log.d("HomeFragment", "Alarm scheduled at: $startTime")
         }
     }
 
@@ -462,6 +499,9 @@ class HomeFragment : Fragment() {
         return String.format("%02d:%02d", hour, minute)
     }
 
+    // ----------------------------------------------------------------------
+    // 9) Lock Screen & Battery Optimization
+    // ----------------------------------------------------------------------
     @RequiresApi(Build.VERSION_CODES.M)
     private fun initializeScreenLockSwitch() {
         updateSwitchState()
@@ -498,7 +538,6 @@ class HomeFragment : Fragment() {
             bottomSheetDialog.dismiss()
             updateSwitchState()
         }
-
         bottomSheetDialog.show()
     }
 
@@ -510,33 +549,50 @@ class HomeFragment : Fragment() {
             val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
             try {
                 val builder = AlertDialog.Builder(requireContext())
-                builder.setTitle("Battery Optimization")
-                    .setMessage("To ensure the best performance, please disable battery optimization for this app. Go to settings and find PlaybackMaster and turn off battery optimization")
-                    .setPositiveButton("Go to Settings") { dialog, _ ->
+                builder.setTitle("Battery Optimization").setMessage(
+                        "To ensure best performance, please disable battery optimization for this app." + "Go to settings and find PlaybackMaster and turn off battery optimization"
+                    ).setPositiveButton("Go to Settings") { dialog, _ ->
                         startActivity(intent)
                         dialog.dismiss()
-                    }.setNegativeButton("Cancel") { dialog, _ ->
-                        dialog.dismiss()
-                    }.setCancelable(false)
+                    }.setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                    .setCancelable(false)
+
                 val dialog = builder.create()
                 dialog.show()
-
-                Toast.makeText(requireContext(), "Turn off Battery Optimization", Toast.LENGTH_LONG)
-                    .show()
+                Toast.makeText(
+                    requireContext(), "Turn off Battery Optimization", Toast.LENGTH_LONG
+                ).show()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
     }
 
-    override fun onDestroyView() {
-        super.onDestroyView()
-        Log.d("HomeFragment", "Destroying view and unregistering ESP receivers")
-        if (isEspReceiverRegistered) {
-            requireContext().unregisterReceiver(espConnectedReceiver)
-            isEspReceiverRegistered = false
+    // ----------------------------------------------------------------------
+    // 10) Utility: Convert Time Strings to Millis
+    // ----------------------------------------------------------------------
+    private fun convertTimeToMillis(time: String?): Long {
+        if (time.isNullOrEmpty()) {
+            Log.e("HomeFragment", "convertTimeToMillis: null/empty time string")
+            return 0L
         }
-
-        _binding = null
+        return try {
+            val parts = time.split(":")
+            if (parts.size != 2) {
+                Log.e("HomeFragment", "convertTimeToMillis: Invalid format - $time")
+                return 0L
+            }
+            val hour = parts[0].toIntOrNull() ?: return 0L
+            val minute = parts[1].toIntOrNull() ?: return 0L
+            val calendar = Calendar.getInstance()
+            calendar.set(Calendar.HOUR_OF_DAY, hour)
+            calendar.set(Calendar.MINUTE, minute)
+            calendar.set(Calendar.SECOND, 0)
+            calendar.set(Calendar.MILLISECOND, 0)
+            calendar.timeInMillis
+        } catch (e: Exception) {
+            Log.e("HomeFragment", "convertTimeToMillis: Exception - ${e.message}", e)
+            0L
+        }
     }
 }
