@@ -3,6 +3,7 @@ package com.shayan.playbackmaster.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
@@ -31,6 +32,14 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
         setContentView(R.layout.activity_main)
         Log.d(TAG, "MainActivity created.")
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 999)
+            }
+        }
+
         // Initialize navigation
         navHostFragment =
             supportFragmentManager.findFragmentById(R.id.nav_host_fragment) as NavHostFragment
@@ -49,6 +58,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
     private fun checkAndRequestPermissions() {
         Log.d(TAG, "Checking and requesting permissions.")
         if (hasStoragePermission()) {
+            // If we already have permission, proceed with any logic needing that permission
             handlePlaybackIntent()
             startUsbService()
         } else {
@@ -57,14 +67,16 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
     }
 
     /**
-     * Checks if the app has storage permissions.
+     * Checks if the app has the needed storage permission for video files.
      */
     private fun hasStoragePermission(): Boolean {
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // Android 13+
             ContextCompat.checkSelfPermission(
                 this, Manifest.permission.READ_MEDIA_VIDEO
             ) == PackageManager.PERMISSION_GRANTED
         } else {
+            // Android 12 and below
             ContextCompat.checkSelfPermission(
                 this, Manifest.permission.READ_EXTERNAL_STORAGE
             ) == PackageManager.PERMISSION_GRANTED
@@ -72,17 +84,16 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
     }
 
     /**
-     * Requests storage permissions if not already granted.
+     * Requests the relevant storage permission if not already granted.
      */
     private fun requestStoragePermission() {
-        val permission =
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                Manifest.permission.READ_MEDIA_VIDEO
-            } else {
-                Manifest.permission.READ_EXTERNAL_STORAGE
-            }
+        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Manifest.permission.READ_MEDIA_VIDEO
+        } else {
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        }
 
-        Log.d(TAG, "Requesting storage permission.")
+        Log.d(TAG, "Requesting storage permission: $permission")
         ActivityCompat.requestPermissions(this, arrayOf(permission), REQUEST_CODE_READ_STORAGE)
     }
 
@@ -136,6 +147,7 @@ class MainActivity : AppCompatActivity(), ExitPlaybackListener {
         if (requestCode == REQUEST_CODE_READ_STORAGE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 Log.d(TAG, "Storage permission granted")
+                // Now that we have permission, proceed:
                 handlePlaybackIntent()
                 startUsbService()
             } else {

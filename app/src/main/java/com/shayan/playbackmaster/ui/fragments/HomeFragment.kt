@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.app.KeyguardManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -302,7 +303,11 @@ class HomeFragment : Fragment() {
     private fun requestUsbPermission(device: UsbDevice) {
         val usbManager = requireContext().getSystemService(Context.USB_SERVICE) as UsbManager
 
-        val usbPermissionIntent = Intent(USB_PERMISSION_ACTION)
+        val usbPermissionIntent = Intent(USB_PERMISSION_ACTION).apply {
+            component = ComponentName(
+                requireContext(), "com.shayan.playbackmaster.receivers.UsbPermissionReceiver"
+            )
+        }
 
         val permissionIntent = PendingIntent.getBroadcast(
             requireContext(),
@@ -550,12 +555,11 @@ class HomeFragment : Fragment() {
             try {
                 val builder = AlertDialog.Builder(requireContext())
                 builder.setTitle("Battery Optimization").setMessage(
-                        "To ensure best performance, please disable battery optimization for this app." + "Go to settings and find PlaybackMaster and turn off battery optimization"
-                    ).setPositiveButton("Go to Settings") { dialog, _ ->
-                        startActivity(intent)
-                        dialog.dismiss()
-                    }.setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
-                    .setCancelable(false)
+                    "To ensure best performance, please disable battery optimization for this app." + "Go to settings and find PlaybackMaster and turn off battery optimization"
+                ).setPositiveButton("Go to Settings") { dialog, _ ->
+                    startActivity(intent)
+                    dialog.dismiss()
+                }.setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }.setCancelable(false)
 
                 val dialog = builder.create()
                 dialog.show()

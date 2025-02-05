@@ -37,18 +37,22 @@ class PlaybackService : Service() {
         private const val ACTION_PROXIMITY_LOST = "ACTION_PROXIMITY_LOST"
     }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Playback Service created and ProximityReceiver registered.")
+
+        // 1) Create your channel if needed
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            createNotificationChannel()
+        }
+        startForeground(1, createForegroundNotification())
 
         registerReceiver(proximityReceiver, IntentFilter().apply {
             addAction(ACTION_PROXIMITY_DETECTED)
             addAction(ACTION_PROXIMITY_LOST)
         }, RECEIVER_NOT_EXPORTED)
-
-        createNotificationChannel()
-        startForeground(1, createForegroundNotification())
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
