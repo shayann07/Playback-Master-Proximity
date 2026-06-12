@@ -1,61 +1,107 @@
-# Playback Master Proximity
+# Playback-Master-Proximity
 
-Playback Master Proximity is an Android app that demonstrates how to use the device's proximity sensor to control video playback. It integrates a proximity chip for video playback control, automatically pausing when the user covers the sensor and resuming when uncovered. The app also showcases orientation‑specific layouts, a polished user interface and Jetpack components.
+Native Kotlin Android **scheduled video player** with **USB-attached proximity control**. Sibling of [`Playback-Master`](https://github.com/shayann07/Playback-Master) — same daily-window logic and same `applicationId = com.shayan.playbackmaster` — but instead of an unconditional play, the video pauses and resumes inside the scheduled window based on bytes streamed from an **ESP32** (or any USB-serial board) over OTG. While the ESP32 emits `1`, the foreground service plays; while it emits `0`, it pauses. Single-Activity + Jetpack Navigation, MVVM-lite (`AppViewModel` + `LiveData` + SharedPreferences), no Hilt / Coroutines / Compose / Room / Firebase. ~13 Kotlin files. ExoPlayer 2.19.1 + `mik3y/usb-serial-for-android` 3.7.0.
 
-## Features
+## ⚠ Heads-up: previous README claims that aren't true
 
-- **Proximity sensor control** – Detects the device's proximity sensor to automatically pause playback when the user covers the sensor and resumes when uncovered.
-- **Video playback** – Plays local or embedded video using Android's media APIs (e.g., ExoPlayer).
-- **Landscape and portrait layouts** – Provides custom layouts and navigation for both landscape and portrait orientations.
-- **Modern UI design** – Implements a polished user interface with custom fonts, icons and responsive design.
-- **Navigation components** – Uses Jetpack Navigation for seamless fragment transitions.
-- **Sensor feedback handling** – Handles proximity sensor signals to adjust playback state.
+The previous README listed Dagger-Hilt, Kotlin Coroutines, the Android proximity sensor, custom landscape/portrait layouts, and an MIT licence. None of those are in the code:
 
-## Tech Stack
+- **No Hilt** (no `@HiltAndroidApp` / `@AndroidEntryPoint` / `@Inject`, no Hilt artefacts in `gradle/libs.versions.toml`).
+- **No Kotlin Coroutines** (no `kotlinx-coroutines-*` dependency; threading is `Thread {}` and `Handler.postDelayed`).
+- **Not the Android proximity sensor.** The proximity signal comes from a USB-serial device (ESP32) at 115200 baud, parsed in `services/UsbProximityService.kt:149-210`.
+- **No `layout-land` / `layout-port` resource folders.** Only `app/src/main/res/layout/` (4 orientation-generic files).
+- **No `LICENSE` file** at the repo root.
+- The previous README also carried 13 `<!-- gitpulse:contribution -->` marker comments (lines 49-61) and the recent git history is dominated by `Update repository metadata (GitPulse)` commits — those have been removed from this rewrite.
 
-| Layer/Feature            | Technology                                      |
-|--------------------------|-------------------------------------------------|
-| Language                 | Kotlin                                          |
-| Architecture & Patterns  | MVVM (Model‑View‑ViewModel)                     |
-| Sensors & Playback       | Android Sensor APIs, ExoPlayer                   |
-| UI                       | Android Jetpack Components, Material Design     |
-| Dependency Injection     | Dagger‑Hilt                                     |
-| Coroutines & Lifecycle   | Kotlin Coroutines, LiveData, ViewModel          |
+## Status
 
-## Getting Started
+- Working tree clean on `master`. Recent commits are all `Update repository metadata (GitPulse)` (`f4a686b`, `ffb02ed`, `4aa72c0`, …); the real product commits (`Complete`, `Fixed Proximity Signals`) sit below them.
+- Remote: `https://github.com/shayann07/Playback-Master-Proximity.git`.
 
-To run the app locally:
+## How it works
 
-1. **Clone the repository**  
-   ```bash
-   git clone https://github.com/shayann07/Playback-Master-Proximity.git
-   cd Playback-Master-Proximity
-   ```
+### Schedule a window
 
-2. **Open in Android Studio**  
-   Open the project in [Android Studio](https://developer.android.com/studio) and let it sync all dependencies.
+`HomeFragment` lets the user pick a local video URI and a start + end time via `TimePickerHelper`. On "schedule":
 
-3. **Run the app**  
-   Connect an Android device or start an emulator and click **Run**. The app will build and deploy.
+1. URI + start/end are persisted via `data/preferences/PreferencesHelper` (SharedPreferences).
+2. `utils/AlarmUtils.kt:17-61` registers a daily alarm with `AlarmManager.setExactAndAllowWhileIdle(...)`. (Improvement over `Playback-Master`, which used the inexact `setRepeating`.)
+3. The user is prompted to disable battery optimisation via `BatteryOptimizationHelper` — required so OEM Doze does not drop the alarm.
 
-## Contribution
+### Survive reboot
 
-Contributions are welcome! Feel free to open issues or submit pull requests for new features, bug fixes or improvements.
+`receivers/BootReceiver.kt:18-60` reads the saved state on `BOOT_COMPLETED` and re-arms the alarm.
 
-## License
+### Foreground playback
 
-This project is licensed under the MIT License.
+When the alarm fires, `services/PlaybackService.kt:25-230` runs as a foreground service of type `mediaPlayback`, posts a media-style notification, holds a `SCREEN_BRIGHT_WAKE_LOCK`, and listens for `ACTION_PLAY_VIDEO` / `ACTION_STOP_VIDEO` to drive ExoPlayer 2.19.1.
 
-<!-- gitpulse:contribution index="1" timestamp="2026-04-23" -->
-<!-- gitpulse:contribution index="2" timestamp="2026-04-23" -->
-<!-- gitpulse:contribution index="3" timestamp="2026-04-23" -->
-<!-- gitpulse:contribution index="4" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="5" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="6" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="7" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="8" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="9" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="10" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="11" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="12" timestamp="2026-04-24" -->
-<!-- gitpulse:contribution index="13" timestamp="2026-04-24" -->
+### USB proximity
+
+`services/UsbProximityService.kt:23-266` enumerates USB devices, opens a serial port at 115200/8N1, and reads single-byte frames. Inside the active schedule window:
+
+- `1` byte ⇒ broadcast `ACTION_PROXIMITY_DETECTED` ⇒ `receivers/ProximityReceiver` ⇒ `PlaybackService.ACTION_PLAY_VIDEO`.
+- `0` byte ⇒ broadcast `ACTION_PROXIMITY_LOST` ⇒ `receivers/ProximityReceiver` ⇒ `PlaybackService.ACTION_STOP_VIDEO`.
+
+Outside the window the proximity bytes are ignored.
+
+### Architecture
+
+`ui/viewmodel/AppViewModel : AndroidViewModel` exposes `videoUri`, `startTime`, `endTime` as `MutableLiveData`. There is no Repository or UseCase layer — the ViewModel reads / writes `PreferencesHelper` directly.
+
+## Tech stack
+
+- **Build:** AGP 8.8.0, Kotlin 2.0.21, Java 11, version catalog at `gradle/libs.versions.toml`. View Binding enabled.
+- **App config:** `applicationId = com.shayan.playbackmaster` (shared with the sibling `Playback-Master`), `compileSdk = 35`, `minSdk = 21`, `targetSdk = 35`, `versionCode = 1`, `versionName = "1.0"`.
+- **AndroidX / Jetpack:** core-ktx 1.15.0, appcompat 1.7.0, material 1.12.0, navigation-fragment-ktx + navigation-ui-ktx 2.8.5.
+- **Media:** ExoPlayer 2.19.1 (legacy artefact — Media3 is the modern replacement).
+- **USB:** `com.github.mik3y:usb-serial-for-android` 3.7.0.
+- **Permissions:** `SCHEDULE_EXACT_ALARM`, `USE_EXACT_ALARM`, `RECEIVE_BOOT_COMPLETED`, `READ_MEDIA_VIDEO` (33+), `READ_EXTERNAL_STORAGE` (≤ 32), `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `WAKE_LOCK`, `DEVICE_POWER`, `SYSTEM_ALERT_WINDOW`.
+
+## Project layout
+
+```
+Playback-Master-Proximity/
+├── app/
+│   ├── build.gradle.kts                              applicationId com.shayan.playbackmaster
+│   └── src/main/
+│       ├── AndroidManifest.xml
+│       └── java/com/shayan/playbackmaster/
+│           ├── data/
+│           │   ├── models/Video.kt
+│           │   └── preferences/PreferencesHelper.kt
+│           ├── receivers/
+│           │   ├── BootReceiver.kt                   reschedules on BOOT_COMPLETED
+│           │   └── ProximityReceiver.kt              ⚠ exported=true, no signature-perm
+│           ├── services/
+│           │   ├── PlaybackService.kt                ⚠ exported=true; ExoPlayer + foreground notification
+│           │   └── UsbProximityService.kt            ⚠ exported=true; reads ESP32 over USB serial
+│           ├── ui/
+│           │   ├── MainActivity.kt                   NavHost
+│           │   ├── viewmodel/AppViewModel.kt         MutableLiveData × 3
+│           │   └── fragments/                        HomeFragment, VideoFragment, ExitPlaybackListener
+│           └── utils/                                AlarmUtils, BatteryOptimizationHelper, Constants, TimePickerHelper
+├── .gitignore                                        partial — most of `.idea/` is still tracked
+└── README.md
+```
+
+## Setup / run
+
+1. **Hardware.** Flash an ESP32 (or any USB-serial board) to emit `1` / `0` bytes (one per detection event) and connect it via OTG to the Android device.
+2. Open the project in Android Studio (AGP 8.8.0 / Gradle 8.10.x) and run on Android 5.0+ (`minSdk = 21`).
+3. On first launch, grant:
+   - `READ_MEDIA_VIDEO` (Android 13+) or legacy `READ_EXTERNAL_STORAGE` (≤ API 32),
+   - The `SCHEDULE_EXACT_ALARM` permission (Android 12+),
+   - The "ignore battery optimisations" prompt,
+   - The USB device permission popup on first ESP32 attach.
+4. Pick a local video, set start + end times, tap **Schedule**.
+
+## Honest limitations
+
+- **Three services / receivers are `exported="true"` with no signature-level permission.** `PlaybackService`, `UsbProximityService`, and `ProximityReceiver` will accept broadcasts from any installed app — `ACTION_PLAY_VIDEO` / `ACTION_STOP_VIDEO` / `ACTION_PROXIMITY_DETECTED` / `ACTION_PROXIMITY_LOST` can be forged. Set `android:exported="false"` (USB attach is system-mediated via the manifest filter) or add a custom signature permission.
+- **`.gitignore` is partial.** It excludes `local.properties`, `.gradle`, `/build`, and a few `.idea/*` files, but leaves `.idea/.name`, `.idea/compiler.xml`, `.idea/gradle.xml`, `.idea/migrations.xml`, `.idea/misc.xml`, `.idea/vcs.xml`, etc. tracked. Add `/.idea/` and `git rm --cached` everything currently shadowed.
+- **`PowerManager.WakeLock` without timeout** in `VideoFragment` — bound it to the remaining playback window so a missed `release()` doesn't drain the battery.
+- **ExoPlayer 2.x is in maintenance mode.** Migrate to `androidx.media3:media3-exoplayer:1.x`.
+- **Hardcoded USB baud rate** (115200) and serial parameters in `UsbProximityService.kt:136`. Surface via settings if you ever ship a non-ESP32 controller.
+- **No `LICENSE` file** at the repo root despite the previous README claiming MIT.
+- **No tests** beyond the default `ExampleUnitTest` / `ExampleInstrumentedTest`. Time-window arithmetic and `PreferencesHelper` are easy to unit-test; the USB layer is mockable behind a small interface.
